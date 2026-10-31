@@ -1,0 +1,18 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Story Submission Status | Humboldt Fishers</title><style>*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f5f8fa;color:#20313b}.topbar{padding:18px max(22px,calc((100% - 900px)/2));background:#fff;border-bottom:1px solid #e2e9ed}.brand{font-weight:800;letter-spacing:1.5px;color:#183847;text-decoration:none}.brand span{color:#238fca}main{max-width:720px;margin:55px auto;padding:0 20px}.card{background:#fff;border:1px solid #e0e8ed;border-radius:14px;padding:28px;box-shadow:0 8px 26px rgba(25,57,72,.04)}.status{display:inline-block;border-radius:30px;padding:8px 12px;background:#fff3d8;color:#8a6418;font-weight:700;font-size:13px}.published{background:#e5f7ee;color:#176c48}.denied{background:#fff0ef;color:#9c2f2a}h1{color:#183847}.muted{color:#687b84;line-height:1.6}a.button{display:inline-block;background:#167da8;color:white;text-decoration:none;padding:12px 16px;border-radius:8px;font-weight:700;margin-top:10px}</style></head><body><header class="topbar"><a class="brand" href="/">HUMBOLDT <span>FISHERS</span></a></header><main><section class="card"><span class="status {{ story.status }}">{% if story.status == 'pending' %}Waiting on admin to publish{% elif story.status == 'published' %}Published{% else %}Not published{% endif %}</span><h1>{{ story.title }}</h1><p class="muted">Thanks for sharing your fishing story, {{ story.author }}. {% if story.status == 'pending' %}Your submission is waiting for the site admin to review it. Only this private status link can check the submission; it is not visible on the public Fishing Stories page yet.{% elif story.status == 'published' %}Your story is now live on the Fishing Stories page!{% else %}Your story was not published. It is not visible to the public.{% endif %}</p><p class="muted">Submitted: {{ story.submitted_at }}</p><a class="button" href="/fishing-stories">Back to Fishing Stories</a></section></main>
+<style>
+.hf-account-control{position:fixed;top:8px;right:62px;z-index:10004;display:flex;align-items:center;gap:7px}
+.hf-account-btn{height:42px;padding:0 13px;border:1px solid #365064;border-radius:9px;background:#0b2638;color:#fff;font:700 13px Arial,sans-serif;cursor:pointer;white-space:nowrap}
+.hf-account-btn:hover{background:#12415b}
+.hf-account-email{max-width:180px;overflow:hidden;text-overflow:ellipsis;color:#e8f5fb;font:12px Arial,sans-serif}
+@media(max-width:520px){.hf-account-email{display:none}.hf-account-btn{padding:0 10px;font-size:12px}}
+</style>
+<div class="hf-account-control">
+{% if current_google_user %}
+  <span class="hf-account-email" title="{{ current_google_user.email }}">Signed in: {{ current_google_user.email }}</span>
+  <a class="hf-account-btn" href="{{ url_for('logout', next=request.path) }}">Sign Out</a>
+{% else %}
+  <a class="hf-account-btn" href="{{ url_for('login_google', next=request.path) }}">Sign In</a>
+{% endif %}
+</div>
+
+</body></html>
