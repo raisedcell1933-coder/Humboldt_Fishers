@@ -943,10 +943,10 @@ def bay_regulations_status():
                         if response.status != 200:
                             raise RuntimeError("CDFW returned HTTP " + str(response.status))
                         raw = response.read().decode("utf-8", "ignore")
-                    raw = re.sub(r"<script\\b[^>]*>.*?</script>|<style\\b[^>]*>.*?</style>", " ", raw, flags=re.I | re.S)
+                    raw = re.sub(r"<script\b[^>]*>.*?</script>|<style\b[^>]*>.*?</style>", " ", raw, flags=re.I | re.S)
                     raw = re.sub(r"<[^>]+>", " ", raw)
                     raw = raw.replace("&nbsp;", " ").replace("&#160;", " ").replace("&amp;", "&")
-                    page = re.sub(r"\\s+", " ", raw).strip().lower()
+                    page = re.sub(r"\s+", " ", raw).strip().lower()
                 except Exception as exc:
                     error = str(exc)
 
@@ -1002,10 +1002,10 @@ def bay_regulations_status():
                         if response.status != 200:
                             raise RuntimeError("CDFW Northern Region returned HTTP " + str(response.status))
                         north_raw = response.read().decode("utf-8", "ignore")
-                    north_raw = re.sub(r"<script\\b[^>]*>.*?</script>|<style\\b[^>]*>.*?</style>", " ", north_raw, flags=re.I | re.S)
+                    north_raw = re.sub(r"<script\b[^>]*>.*?</script>|<style\b[^>]*>.*?</style>", " ", north_raw, flags=re.I | re.S)
                     north_raw = re.sub(r"<[^>]+>", " ", north_raw)
                     north_raw = north_raw.replace("&nbsp;", " ").replace("&#160;", " ").replace("&amp;", "&")
-                    north_page = re.sub(r"\\s+", " ", north_raw).strip().lower()
+                    north_page = re.sub(r"\s+", " ", north_raw).strip().lower()
                 except Exception as exc:
                     error = (error + "; " if error else "") + "Northern Region source: " + str(exc)
 
