@@ -2,7 +2,7 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fish Species | Fish Humboldt</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f3f7fa;color:#153346;font-family:Inter,Arial,sans-serif}.topbar{height:auto;min-height:62px;padding:10px 18px;display:flex;align-items:center;justify-content:space-between;gap:16px;position:sticky;top:0;z-index:10000;background:#071725;border-bottom:1px solid #18384a}.brand{font-weight:900;letter-spacing:1.8px;color:#f4fbff;text-decoration:none;font-size:20px;white-space:nowrap}.brand span{color:#13b8f2}.site-nav{display:flex;gap:15px}.site-nav a{color:#f2f8fc;text-decoration:none;font-size:13px;font-weight:700}.menu-toggle{display:flex;position:fixed;top:8px;right:12px;z-index:10003;width:42px;height:42px;align-items:center;justify-content:center;border:1px solid #365064;border-radius:9px;background:#071725;color:white;font-size:25px;cursor:pointer}.site-nav{position:fixed;top:0;right:0;bottom:0;z-index:10002;width:min(320px,84vw);height:100dvh;padding:68px 18px 24px;overflow-y:auto;flex-direction:column;gap:0;background:#071725;box-shadow:-12px 0 35px #0005;transform:translateX(110%);visibility:hidden;transition:transform .24s ease,visibility .24s ease}.site-nav.mobile-open{transform:translateX(0);visibility:visible}.site-nav a{display:flex;min-height:48px;align-items:center;padding:13px 12px;border-bottom:1px solid #ffffff1f;color:#f2f8fc}.site-nav a:hover{color:#22c9ff}.menu-backdrop{position:fixed;inset:0;z-index:9999;background:#0007;opacity:0;visibility:hidden}.menu-backdrop.open{opacity:1;visibility:visible}.wrap{max-width:1180px;margin:auto;padding:44px 22px 60px}.eyebrow{font-size:12px;letter-spacing:2px;color:#078dbd;font-weight:850}.wrap h1{font-size:clamp(36px,5vw,56px);line-height:1.05;margin:10px 0;color:#12384c}.intro{max-width:850px;line-height:1.7;color:#526b7a}.notice{background:#e8f7fc;border:1px solid #c8eaf6;padding:13px 16px;border-radius:10px;color:#315d70;line-height:1.6;margin:22px 0}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}.fish{background:white;transition:transform .15s ease,box-shadow .15s ease;border:1px solid #dce7ed;border-radius:15px;overflow:hidden;box-shadow:0 7px 22px #173f5208}.fish[role="link"]:hover,.fish[role="link"]:focus-visible{transform:translateY(-3px);box-shadow:0 12px 28px #173f521c;outline:2px solid #13a7d8;outline-offset:2px}.fish img{width:100%;height:150px;object-fit:cover;object-position:center;background:#e4edf1;display:block}.fish img[alt="Steelhead swimming underwater"],.fish img[alt="Coho salmon"],.fish img.bay-fish-image,.fish img.lake-fish-image{object-fit:contain;background:#fff}.fish img[alt="Rainbow trout"]{height:112px;max-height:112px;object-fit:contain;object-position:center;padding:10px;background:#fff}.fish img.bay-fish-image{height:140px;max-height:140px;object-fit:contain;padding:8px;background:#fff}.fish img.lake-fish-image{height:150px;max-height:150px;object-fit:contain;padding:8px;background:#fff}.fish img[src]{color:#153346;font-size:13px}.fish-photo{overflow:hidden;background:#e4edf1}.fishbody{padding:18px}.fish h2{margin:0 0 8px;font-size:21px;color:#12384c}.fish p{font-size:14px;line-height:1.65;color:#526b7a;margin:8px 0}.fish strong{color:#234c60}.tag{display:inline-block;padding:5px 9px;border-radius:999px;background:#e8f7fc;color:#087ba5;font-size:12px;font-weight:800}.footer{background:#071725;color:#a7bdc9;text-align:center;padding:20px;font-size:12px}@media(max-width:850px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.grid{grid-template-columns:1fr}.fish img{height:180px}.fish img.bay-fish-image{height:140px;max-height:140px}.wrap{padding:30px 16px 45px}.brand{font-size:17px}}
-</style><style>
+.species-search{margin:22px 0 28px;padding:16px 18px;background:#fff;border:1px solid #dce7ed;border-radius:12px;box-shadow:0 5px 18px #173f5208}.species-search label{display:block;margin-bottom:8px;font-weight:800;color:#12384c}.species-search-row{display:flex;gap:9px}.species-search input{flex:1;min-width:0;height:46px;padding:0 13px;border:1px solid #bfd0da;border-radius:8px;font:15px Inter,Arial,sans-serif;color:#153346;outline:none}.species-search input:focus{border-color:#0799ca;box-shadow:0 0 0 3px #13b8f222}.species-search button{padding:0 16px;border:0;border-radius:8px;background:#087ba5;color:#fff;font-weight:800;cursor:pointer}.species-search button:hover{background:#075f80}.species-search p{margin:9px 0 0;color:#607987;font-size:13px}@media(max-width:420px){.species-search-row{flex-direction:column}.species-search button{height:42px}}</style><style>
 /* Fish Humboldt shared navigation drawer: consistent on every public page */
 .topbar{position:sticky!important;top:0!important;z-index:10000!important;display:flex!important;align-items:center!important;justify-content:space-between!important;flex-direction:row!important;flex-wrap:nowrap!important;gap:12px!important;min-height:58px!important;height:auto!important;padding:10px 18px!important;background:#071725!important;border-bottom:1px solid #18384a!important}
 .brand{color:#f4fbff!important;font-weight:900!important;letter-spacing:1.8px!important;text-decoration:none!important;white-space:nowrap!important}
@@ -19,6 +19,11 @@
 </style><script>(function(){function initSharedFishersNav(){var nav=document.querySelector('.site-nav');if(!nav)return;var links=[['/','Home'],['/moon-cycle','Moon Cycle'],['/tides','Tides'],['/wind','Wind'],['/weather','Weather'],['/fishing-reports','Fishing Reports'],['/fishing-stories','Fishing Stories'],['/rivers','Rivers'],['/bay','Bay'],['/species','Species']] ;nav.innerHTML=links.map(function(x){return '<a href="'+x[0]+'">'+x[1]+'</a>'}).join('');var path=window.location.pathname;var active=path==='/'?'/':path.indexOf('/species/')===0?'/species':path;nav.querySelectorAll('a').forEach(function(a){if(a.getAttribute('href')===active){a.setAttribute('aria-current','page');a.setAttribute('aria-label',a.textContent+' (current page)')}else{a.removeAttribute('aria-current')}})}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initSharedFishersNav);else initSharedFishersNav()})();</script></head><body>
 <header class="topbar"><a class="brand" href="/">FISH <span>HUMBOLDT</span></a><nav class="site-nav" aria-label="Main navigation"><a href="/">Home</a><a href="/moon-cycle">Moon Cycle</a><a href="/tides">Tides</a><a href="/wind">Wind</a><a href="/weather">Weather</a><a href="/fishing-reports">Fishing Reports</a><a href="/fishing-stories">Fishing Stories</a><a href="/rivers">Rivers</a><a href="/bay">Bay</a><a href="/species">Species</a></nav></header>
 <main class="wrap"><div class="eyebrow">HUMBOLDT COUNTY · NORTH COAST</div><h1>Fish species guide</h1><p class="intro">Explore fish species found in Humboldt County rivers and Humboldt Bay. Species presence and catch opportunities depend on location, habitat, and season.</p><div class="notice"><strong>Fishing reminder:</strong> This is a general river-species guide, not confirmation that a fish is currently present or legal to catch. Check current California fishing regulations, seasonal closures, and local advisories before fishing.</div>
+<section class="species-search" aria-label="Search fish species">
+<label for="speciesSearch">Search fish species</label>
+<div class="species-search-row"><input id="speciesSearch" type="search" placeholder="Type a fish name, e.g. Steelhead or Lingcod" autocomplete="off"><button id="clearSpeciesSearch" type="button">Clear</button></div>
+<p id="speciesSearchCount" aria-live="polite">Showing all species</p>
+</section>
 <h2>River Species</h2><p class="intro">Fish associated with Humboldt County rivers and connected freshwater reaches.</p><div class="grid">
 <article class="fish"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Oncorhynchus_mykiss.jpg" alt="Steelhead swimming underwater" loading="lazy"><div class="fishbody"><span class="tag">Native anadromous fish</span><h2>Steelhead</h2><p><strong>Rivers:</strong> Eel River, Mad River, Van Duzen River, Trinity River, and other suitable North Coast tributaries.</p><p><strong>Notes:</strong> Steelhead are the ocean-going form of rainbow trout. This listing focuses on steelhead, not resident rainbow trout.</p></div></article>
 <article class="fish"><img src="/static/chinook-salmon.png" alt="Chinook salmon" loading="lazy"><div class="fishbody"><span class="tag">Salmon</span><h2>Chinook Salmon</h2><p><strong>Rivers:</strong> Eel, Mad, Trinity, and Klamath river systems, depending on run and season.</p><p><strong>Notes:</strong> Also called king salmon. Runs, open seasons, and permitted reaches vary.</p></div></article>
@@ -105,4 +110,34 @@ document.querySelectorAll('.fish').forEach(function(card){var heading=card.query
 {% endif %}
 </div>
 
-</body></html>
+<script>
+(function(){
+function initSpeciesSearch(){
+ var input=document.getElementById('speciesSearch'),clear=document.getElementById('clearSpeciesSearch'),count=document.getElementById('speciesSearchCount');
+ if(!input||!count)return;
+ var cards=Array.from(document.querySelectorAll('main.wrap .grid .fish'));
+ function filter(){
+  var q=input.value.trim().toLocaleLowerCase();
+  var shown=0;
+  cards.forEach(function(card){
+   var name=(card.querySelector('h2')?.textContent||'').toLocaleLowerCase();
+   var text=(card.textContent||'').toLocaleLowerCase();
+   var match=!q||name.includes(q)||text.includes(q);
+   card.hidden=!match;
+   if(match)shown++;
+  });
+  document.querySelectorAll('main.wrap .grid').forEach(function(grid){
+   var visible=Array.from(grid.querySelectorAll('.fish')).some(function(card){return !card.hidden;});
+   var heading=grid.previousElementSibling;
+   if(heading&&/^H[1-3]$/.test(heading.tagName))heading.hidden=!visible;
+   var intro=heading&&heading.previousElementSibling;
+   if(intro&&intro.classList.contains('intro'))intro.hidden=!visible;
+  });
+  count.textContent=q?(shown+' matching '+(shown===1?'fish':'fish')+' shown'):'Showing all '+cards.length+' fish';
+ }
+ input.addEventListener('input',filter);
+ clear.addEventListener('click',function(){input.value='';filter();input.focus();});
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initSpeciesSearch);else initSpeciesSearch();
+})();
+</script></body></html>
