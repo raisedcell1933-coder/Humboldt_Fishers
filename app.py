@@ -1016,8 +1016,6 @@ def bay_regulations_status():
                         salmon_detail = "CDFW's Northern Region page lists ocean salmon as closed for the North Coast region. This applies to ocean salmon fishing in the listed region; do not use it to infer separate river rules. Coho (silver) salmon are excluded from California's ocean salmon daily bag allowance."
                         species["chinook-salmon"] = {"state": "closed", "label": "RED — Ocean salmon closed in the Northern Region", "detail": salmon_detail, "source": north_url}
                         species["coho-salmon"] = {"state": "closed", "label": "RED — Ocean salmon closed; coho may not be retained", "detail": salmon_detail, "source": north_url}
-                    if "the recreational fishery for california halibut" in north_page and "open year-round" in north_page:
-                        species["california-halibut"] = {"state": "open", "label": "GREEN — California halibut open year-round", "detail": "CDFW lists California halibut as open year-round. North of Point Sur, the daily bag and possession limit is 2 fish and the minimum size is 22 inches total length. Confirm exact bay rules, gear restrictions and MPAs.", "source": north_url}
                     if "pacific sanddab and other flatfish" in north_page and "open year-round" in north_page:
                         species["flounder"] = {"state": "open", "label": "GREEN — Listed flatfish open year-round", "detail": "CDFW lists Pacific sanddab and specified flatfish as open year-round at all depths, including butter sole, curlfin sole, flathead sole, rex sole, rock sole and sand sole. Petrale sole and starry flounder are also listed open year-round. Identify the exact flatfish and check its individual size and bag rules before keeping it.", "source": north_url}
                     if "the recreational fishery for surfperch" in north_page and "open" in north_page:
@@ -1046,6 +1044,23 @@ def bay_regulations_status():
                     snap("white-sturgeon", "check", "YELLOW — Verify the exact waterbody; ocean retention is zero", "The CDFW page states that ocean white sturgeon fishing is catch-and-release only October 1, 2026 through June 30, 2027, with zero daily and annual retention, plus a report card and specific hook/handling rules. Do not apply this ocean rule automatically to every bay, tidal river, or freshwater reach. Verify the exact waterbody and current sturgeon rules.")
                     snap("dungeness-crab", "closed", "RED — Dungeness crab season listed closed", "CDFW's Oct 9, 2026 summary says the season is closed as of July 31 and scheduled to reopen Nov 7, 2026. A scheduled reopening is not a guarantee; check for updates before crabbing.")
                     snap("red-rock-crab", "open", "GREEN — Rock crab season listed open; limits apply", "CDFW says all rock crab species, including red crab, are open year-round statewide, with a 35-crab daily bag limit and 4-inch minimum. Check domoic-acid advisories, gear rules and local restrictions.")
+
+                # Final source-specific overrides for the two cards still being corrected:
+                # California halibut follows the SF Bay page; surfperch follows Northern Region.
+                if page and "the recreational fishery for california halibut" in page and "remains open year-round" in page:
+                    species["california-halibut"] = {
+                        "state": "open",
+                        "label": "GREEN — California halibut open year-round",
+                        "detail": "CDFW's SF Bay District page lists California halibut as open year-round. North of Point Sur, the daily bag and possession limit is 2 fish and the minimum size is 22 inches total length. Check the exact water, gear restrictions and marine protected areas.",
+                        "source": _BAY_CDFW_URL,
+                    }
+                if north_page and "the recreational fishery for surfperch" in north_page and "open year-round" in north_page:
+                    species["surfperch"] = {
+                        "state": "open",
+                        "label": "GREEN — Northern Region surfperch open year-round",
+                        "detail": "CDFW's Northern Region page lists surfperch as open year-round. The daily bag and possession limit is 20 fish combined across species (except shiner perch), with no more than 10 of any one species. Shiner perch have a separate 20-fish limit. Redtail surfperch minimum size is 10½ inches total length.",
+                        "source": north_url,
+                    }
 
                 checked_at = now.strftime("%b %d, %Y %I:%M %p %Z")
                 _BAY_REG_CHECK.update({
