@@ -1045,6 +1045,17 @@ def bay_regulations_status():
                     snap("dungeness-crab", "closed", "RED — Dungeness crab season listed closed", "CDFW's Oct 9, 2026 summary says the season is closed as of July 31 and scheduled to reopen Nov 7, 2026. A scheduled reopening is not a guarantee; check for updates before crabbing.")
                     snap("red-rock-crab", "open", "GREEN — Rock crab season listed open; limits apply", "CDFW says all rock crab species, including red crab, are open year-round statewide, with a 35-crab daily bag limit and 4-inch minimum. Check domoic-acid advisories, gear rules and local restrictions.")
 
+                # Leopard shark: use the Northern Region shark entry, not the generic
+                # state-managed shark summary. The official page gives a year-round season,
+                # 3 fish daily/possession, and 36-inch minimum size.
+                if north_page and "the recreational fishery for leopard shark" in north_page and "open year-round" in north_page:
+                    species["leopard-shark"] = {
+                        "state": "open",
+                        "label": "GREEN — Leopard shark open year-round",
+                        "detail": "CDFW lists recreational leopard shark fishing as open year-round at all depths. Daily bag and possession limit: 3 fish. Minimum size: 36 inches total length. Leopard shark may not be taken or possessed in Groundfish Exclusion Areas. Check the exact location, marine protected areas, current in-season notices, and handling/fillet rules before fishing.",
+                        "source": north_url,
+                    }
+
                 # Final source-specific overrides for the two cards still being corrected:
                 # California halibut follows the SF Bay page; surfperch follows Northern Region.
                 if page and "the recreational fishery for california halibut" in page and "remains open year-round" in page:
