@@ -916,7 +916,8 @@ _BAY_REG_CHECK = {"checked_at": None, "status": "unknown", "species": {}}
 _BAY_REG_CHECKED_TS = 0.0
 _BAY_REG_CHECK_TTL_SECONDS = 24 * 60 * 60
 _BAY_REG_LOCK = Lock()
-_BAY_CDFW_URL = "https://wildlife.ca.gov/Fishing/Ocean/Regulations/Fishing-Map/SF-Bay"
+_BAY_CDFW_URL = "https://wildlife.ca.gov/Fishing/Ocean/Regulations/Salmon"
+_BAY_CDFW_HUMBOLDT_RULE_URL = "https://govt.westlaw.com/calregs/Document/IF6B688607E7F11F1B7E9CCE3A29353D4"
 
 @app.route("/api/bay-regulations-status")
 def bay_regulations_status():
@@ -933,20 +934,24 @@ def bay_regulations_status():
             now_ts = time.time()
             if not _BAY_REG_CHECKED_TS or now_ts - _BAY_REG_CHECKED_TS >= _BAY_REG_CHECK_TTL_SECONDS:
                 page = ""
+                rule_page = ""
                 error = None
                 try:
-                    req = urllib.request.Request(
-                        _BAY_CDFW_URL,
-                        headers={"User-Agent": "HumboldtFishers/1.0 (CDFW regulation status checker; refresh every 24 hours)"},
-                    )
-                    with urllib.request.urlopen(req, timeout=20) as response:
-                        if response.status != 200:
-                            raise RuntimeError("CDFW returned HTTP " + str(response.status))
-                        raw = response.read().decode("utf-8", "ignore")
-                    raw = re.sub(r"<script\b[^>]*>.*?</script>|<style\b[^>]*>.*?</style>", " ", raw, flags=re.I | re.S)
-                    raw = re.sub(r"<[^>]+>", " ", raw)
-                    raw = raw.replace("&nbsp;", " ").replace("&#160;", " ").replace("&amp;", "&")
-                    page = re.sub(r"\s+", " ", raw).strip().lower()
+                    headers = {"User-Agent": "FishHumboldt/1.0 (CDFW regulation status checker; refresh every 24 hours)"}
+                    for source_url, destination in ((_BAY_CDFW_URL, "salmon"), (_BAY_CDFW_HUMBOLDT_RULE_URL, "rule")):
+                        req = urllib.request.Request(source_url, headers=headers)
+                        with urllib.request.urlopen(req, timeout=20) as response:
+                            if response.status != 200:
+                                raise RuntimeError("CDFW regulation source returned HTTP " + str(response.status))
+                            raw = response.read().decode("utf-8", "ignore")
+                        raw = re.sub(r"<script\b[^>]*>.*?</script>|<style\b[^>]*>.*?</style>", " ", raw, flags=re.I | re.S)
+                        raw = re.sub(r"<[^>]+>", " ", raw)
+                        raw = raw.replace("&nbsp;", " ").replace("&#160;", " ").replace("&amp;", "&")
+                        cleaned = re.sub(r"\s+", " ", raw).strip().lower()
+                        if destination == "salmon":
+                            page = cleaned
+                        else:
+                            rule_page = cleaned
                 except Exception as exc:
                     error = str(exc)
 
@@ -958,10 +963,10 @@ def bay_regulations_status():
                     species[slug] = {"state": state, "label": label, "detail": detail, "source": _BAY_CDFW_URL}
 
                 if page:
-                    if "ocean salmon" in page and "closed in the klamath management zone for the remainder of 2026" in page:
-                        add("chinook-salmon", "closed", "RED — Ocean salmon season closed in the Klamath Management Zone", "CDFW says the ocean salmon fishery is closed in the Klamath Management Zone for the remainder of 2026. This is an ocean rule; it does not decide separate Humboldt Bay or river fisheries. Do not target or retain ocean salmon in this closed zone.")
+                    if "in humboldt bay" in rule_page and "closed" in rule_page:
+                        add("chinook-salmon", "closed", "RED — Chinook salmon fishing closed in Humboldt Bay", "CDFW regulations explicitly list Humboldt Bay as closed to salmon fishing. The published 2027 rule schedules Humboldt Bay to open May 1, 2027. Check CDFW again before fishing because dates and in-season changes can change.")
                     else:
-                        add("chinook-salmon", "check", "YELLOW — Check the exact salmon fishery", "The current page did not clearly confirm an open season for this exact salmon fishery and location. Check the CDFW salmon season page and local river/bay rules before fishing or keeping a fish.")
+                        add("chinook-salmon", "check", "YELLOW — Humboldt Bay salmon status not confirmed", "The official CDFW regulation text did not confirm a clear Humboldt Bay status. Check the linked CDFW salmon regulations before fishing or keeping a fish.")
 
                     if "the recreational fishery for california halibut" in page and "remains open year-round" in page:
                         add("california-halibut", "open", "GREEN — Ocean season open; size and bag limits apply", "CDFW says California halibut remains open year-round. North of Point Sur the daily bag and possession limit is 2 fish and the minimum size is 22 inches total length. Location, gear, and MPA restrictions still apply.")
