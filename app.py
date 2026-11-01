@@ -990,6 +990,42 @@ def bay_regulations_status():
                     else:
                         add("coho-salmon", "check", "YELLOW — Check exact salmon fishery", "This summary did not confirm a current open season for this exact salmon fishery and location. Check CDFW's salmon season rules before targeting or retaining coho.")
 
+                # Fetch the North Coast page separately for Humboldt-area species.
+                north_page = ""
+                north_url = "https://wildlife.ca.gov/Fishing/Ocean/Regulations/Fishing-Map/Northern"
+                try:
+                    req = urllib.request.Request(
+                        north_url,
+                        headers={"User-Agent": "FishHumboldt/1.0 (CDFW regulation status checker; refresh every 24 hours)"},
+                    )
+                    with urllib.request.urlopen(req, timeout=20) as response:
+                        if response.status != 200:
+                            raise RuntimeError("CDFW Northern Region returned HTTP " + str(response.status))
+                        north_raw = response.read().decode("utf-8", "ignore")
+                    north_raw = re.sub(r"<script\\b[^>]*>.*?</script>|<style\\b[^>]*>.*?</style>", " ", north_raw, flags=re.I | re.S)
+                    north_raw = re.sub(r"<[^>]+>", " ", north_raw)
+                    north_raw = north_raw.replace("&nbsp;", " ").replace("&#160;", " ").replace("&amp;", "&")
+                    north_page = re.sub(r"\\s+", " ", north_raw).strip().lower()
+                except Exception as exc:
+                    error = (error + "; " if error else "") + "Northern Region source: " + str(exc)
+
+                # Only update the species requested for repair here. All other
+                # species retain their existing rules and results above.
+                if north_page:
+                    if "closed ocean salmon" in north_page or ("closed fishing seasons" in north_page and "ocean salmon" in north_page):
+                        salmon_detail = "CDFW's Northern Region page lists ocean salmon as closed for the North Coast region. This applies to ocean salmon fishing in the listed region; do not use it to infer separate river rules. Coho (silver) salmon are excluded from California's ocean salmon daily bag allowance."
+                        species["chinook-salmon"] = {"state": "closed", "label": "RED — Ocean salmon closed in the Northern Region", "detail": salmon_detail, "source": north_url}
+                        species["coho-salmon"] = {"state": "closed", "label": "RED — Ocean salmon closed; coho may not be retained", "detail": salmon_detail, "source": north_url}
+                    if "the recreational fishery for california halibut" in north_page and "open year-round" in north_page:
+                        species["california-halibut"] = {"state": "open", "label": "GREEN — California halibut open year-round", "detail": "CDFW lists California halibut as open year-round. North of Point Sur, the daily bag and possession limit is 2 fish and the minimum size is 22 inches total length. Confirm exact bay rules, gear restrictions and MPAs.", "source": north_url}
+                    if "pacific sanddab and other flatfish" in north_page and "open year-round" in north_page:
+                        species["flounder"] = {"state": "open", "label": "GREEN — Listed flatfish open year-round", "detail": "CDFW lists Pacific sanddab and specified flatfish as open year-round at all depths, including butter sole, curlfin sole, flathead sole, rex sole, rock sole and sand sole. Petrale sole and starry flounder are also listed open year-round. Identify the exact flatfish and check its individual size and bag rules before keeping it.", "source": north_url}
+                    if "the recreational fishery for surfperch" in north_page and "open" in north_page:
+                        species["surfperch"] = {"state": "open", "label": "GREEN — Surfperch season open; limits apply", "detail": "CDFW lists North Coast surfperch as open. The general daily bag and possession limit is 20 fish combined (except shiner perch), no more than 10 of any one species; redtail surfperch minimum size is 10½ inches total length. Verify the exact current local rule before keeping fish.", "source": north_url}
+                    species["anchovies"] = {"state": "check", "label": "YELLOW — Anchovy rule not separately listed", "detail": "CDFW's Northern Region summary does not give a specific recreational rule for anchovies. Do not substitute the Pacific herring rule for anchovies; check the full current regulations for the exact baitfish and collection method.", "source": north_url}
+                    species["sardines"] = {"state": "check", "label": "YELLOW — Sardine rule not separately listed", "detail": "CDFW's Northern Region summary does not give a specific recreational rule for sardines. Do not assume Pacific herring limits apply to sardines; verify the exact species and method in the full current regulations.", "source": north_url}
+                    species["bat-ray"] = {"state": "check", "label": "YELLOW — Bat ray retention rule not confirmed", "detail": "The Northern Region summary does not state a specific bat ray bag, size or retention rule. This is not confirmation that retention is allowed; check the full California ocean sport-fishing regulations and local marine protected area restrictions before keeping one.", "source": north_url}
+
                 # If CDFW blocks or times out on the server request, retain a clearly labelled
                 # fallback based on the official page's published CDFW summary instead
                 # of replacing every card with an unhelpful yellow. The message below makes
