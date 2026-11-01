@@ -345,6 +345,46 @@ def get_tides(force=False):
         cache.update(fetched=now, data=data)
         return data
 
+@app.route("/robots.txt")
+def robots_txt():
+    """Tell search engines which public areas may be crawled."""
+    body = """User-agent: *
+Disallow: /admin
+Disallow: /api/
+Disallow: /login/
+Disallow: /logout
+Disallow: /community-photo-file/
+Disallow: /admin-private-photo/
+Disallow: /fishing-story-image/
+Disallow: /fishing-story-status/
+
+Sitemap: https://fishhumboldt.com/sitemap.xml
+"""
+    return app.response_class(body, mimetype="text/plain")
+
+
+@app.route("/sitemap.xml")
+def sitemap_xml():
+    """XML sitemap containing the public, indexable Fish Humboldt pages."""
+    from xml.etree.ElementTree import Element, SubElement, tostring
+    from xml.sax.saxutils import escape
+
+    base = "https://fishhumboldt.com"
+    public_paths = [
+        "/", "/tides", "/moon-cycle", "/species", "/rivers", "/bay",
+        "/fishing-reports", "/weather", "/wind", "/community-photos",
+        "/fishing-stories",
+    ]
+    urlset = Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
+    today = datetime.now(PACIFIC).date().isoformat()
+    for path in public_paths:
+        item = SubElement(urlset, "url")
+        SubElement(item, "loc").text = base + path
+        SubElement(item, "lastmod").text = today
+    xml = tostring(urlset, encoding="utf-8", xml_declaration=True)
+    return app.response_class(xml, mimetype="application/xml")
+
+
 @app.route("/")
 def home():
     return render_template("index.html")
