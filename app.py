@@ -1062,6 +1062,24 @@ def bay_regulations_status():
                         "source": north_url,
                     }
 
+                # Northern anchovy and Pacific sardine are open year-round under
+                # the general ocean finfish rules, with no numerical bag limit.
+                # Keep the Monterey Bay health advisory explicitly scoped to that area.
+                baitfish_url = "https://wildlife.ca.gov/Fishing/Ocean/Regulations/Sport-Fishing/General-Ocean-Fishing-Regs"
+                baitfish_detail = "CDFW's general ocean finfish regulations state there are no closed seasons for finfish unless a species-specific rule says otherwise, and specifically list northern anchovy and Pacific sardine among species with no numerical bag limit. This applies to Humboldt-area ocean waters unless a local/in-season closure or health advisory applies. Dip nets may be used to take anchovies; check permitted gear, exact waterbody, marine protected areas, and current health advisories. The Monterey Bay anchovy restriction is geographically limited and should not be applied to Humboldt."
+                species["anchovies"] = {
+                    "state": "open",
+                    "label": "GREEN — Northern anchovy open year-round; no bag limit",
+                    "detail": baitfish_detail,
+                    "source": baitfish_url,
+                }
+                species["sardines"] = {
+                    "state": "open",
+                    "label": "GREEN — Pacific sardine open year-round; no bag limit",
+                    "detail": baitfish_detail,
+                    "source": baitfish_url,
+                }
+
                 checked_at = now.strftime("%b %d, %Y %I:%M %p %Z")
                 _BAY_REG_CHECK.update({
                     "checked_at": checked_at,
