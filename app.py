@@ -32,6 +32,10 @@ ADMIN_USERNAME = os.environ.get("HUMBOLDT_FISHERS_ADMIN_USER", "admin")
 # For public hosting, set HUMBOLDT_FISHERS_ADMIN_PASSWORD to a strong secret in host settings.
 ADMIN_PASSWORD = os.environ.get("HUMBOLDT_FISHERS_ADMIN_PASSWORD", "")
 BASE_DIR = Path(__file__).resolve().parent
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(BASE_DIR / 'static', 'favicon.svg', mimetype='image/svg+xml')
 UPLOAD_DIR = BASE_DIR / "private_uploads"
 DB_PATH = BASE_DIR / "photo_submissions.sqlite3"
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
