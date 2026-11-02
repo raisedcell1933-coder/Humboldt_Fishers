@@ -148,7 +148,7 @@ def fetch_nws_hourly(lat, lon):
     """Fetch a real 16-day hourly weather forecast from Open-Meteo for the selected town."""
     params = {
         "latitude": lat, "longitude": lon,
-        "hourly": "temperature_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m",
+        "hourly": "temperature_2m,precipitation_probability,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m",
         "temperature_unit": "fahrenheit", "wind_speed_unit": "mph",
         "timezone": "America/Los_Angeles", "forecast_days": 16,
     }
@@ -176,6 +176,8 @@ def fetch_nws_hourly(lat, lon):
             "startTime": stamp,
             "temperature": (hourly.get("temperature_2m") or [None] * len(times))[i],
             "temperatureUnit": "F",
+            "weatherCode": codes[i] if i < len(codes) else None,
+            "cloudCover": (hourly.get("cloud_cover") or [None] * len(times))[i],
             "shortForecast": description(codes[i] if i < len(codes) else None),
             "precipitationProbability": (hourly.get("precipitation_probability") or [None] * len(times))[i],
             "windSpeed": (hourly.get("wind_speed_10m") or [None] * len(times))[i],
@@ -376,7 +378,7 @@ def sitemap_xml():
     base = "https://fishhumboldt.com"
     public_paths = [
         "/", "/tides", "/moon-cycle", "/species", "/rivers", "/bay",
-        "/fishing-reports", "/weather", "/wind", "/community-photos",
+        "/fishing-reports", "/weather", "/wind", "/best-days", "/community-photos",
         "/fishing-stories",
     ]
     urlset = Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
@@ -1154,6 +1156,11 @@ def refresh_weather():
         return jsonify(get_weather(force=True))
     except Exception as exc:
         return jsonify({"status": "unavailable", "error": str(exc)}), 502
+
+@app.route("/best-days")
+def best_days_page():
+    """Show calculated fishing windows from the existing local weather, wind and tide feeds."""
+    return render_template("best_days.html")
 
 @app.route("/wind")
 def wind_page():
