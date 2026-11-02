@@ -32,6 +32,16 @@ menuButton.addEventListener('click',function(){var open=!nav.classList.contains(
 backdrop.addEventListener('click',closeMenu);document.addEventListener('keydown',function(e){if(e.key==='Escape')closeMenu()});
 var $=function(id){return document.getElementById(id)};
 var lastRecommendations=[],countdownTimer=null;
+var PREDICTION_CACHE_KEY='fishHumboldtBestDaysPredictionV2',PREDICTION_REFRESH_MS=24*60*60*1000;
+function fingerprintSources(weather,wind,tides){
+ var sourceData={weather:weather.towns&&weather.towns.Eureka||null,wind:{times:wind.times||[],speed:wind.speed||[],gusts:wind.gusts||[]},tides:tides.predicted||[]};
+ var raw=JSON.stringify(sourceData),hash=2166136261;
+ for(var i=0;i<raw.length;i++){hash^=raw.charCodeAt(i);hash=Math.imul(hash,16777619)}
+ return (hash>>>0).toString(16)+'-'+raw.length;
+}
+function readPredictionCache(){try{return JSON.parse(localStorage.getItem(PREDICTION_CACHE_KEY)||'null')}catch(e){return null}}
+function savePredictionCache(fingerprint,recommendations){try{localStorage.setItem(PREDICTION_CACHE_KEY,JSON.stringify({fingerprint:fingerprint,calculatedAt:Date.now(),recommendations:recommendations.map(function(p){return Object.assign({},p,{date:p.date.getTime(),start:p.start.getTime(),end:p.end.getTime(),high:p.high.getTime()})})}))}catch(e){}}
+function restoreCachedRecommendations(cache){return (cache.recommendations||[]).map(function(p){return Object.assign({},p,{date:new Date(p.date),start:new Date(p.start),end:new Date(p.end),high:new Date(p.high)})})}
 function hourKey(value){return String(value||'').slice(0,16).replace(' ','T')}
 function localStamp(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'T'+String(d.getHours()).padStart(2,'0')+':00'}
 function localDate(value){var s=String(value||'').replace(' ','T');var m=s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);return m?new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5]):new Date(s)}
@@ -148,8 +158,17 @@ async function loadData(){
   if(stale)throw new Error('At least one source is marked stale or older than 3 hours. Predictions are hidden until current data is available.');
   if(!Array.isArray(wind.times)||!wind.times.length)throw new Error('Hourly wind forecast is missing.');
   if(!Array.isArray(tides.predicted)||!tides.predicted.length)throw new Error('NOAA tide predictions are missing.');
-  lastRecommendations=makePredictions(weather,wind,tides);
-  $('dataStatus').textContent='Live source data · '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  var fingerprint=fingerprintSources(weather,wind,tides),cached=readPredictionCache(),now=Date.now();
+  var sameSources=cached&&cached.fingerprint===fingerprint&&Array.isArray(cached.recommendations);
+  var cacheStillFresh=sameSources&&now-Number(cached.calculatedAt)<PREDICTION_REFRESH_MS;
+  if(cacheStillFresh){
+   lastRecommendations=restoreCachedRecommendations(cached);
+   $('dataStatus').textContent='Forecast unchanged · predictions kept from '+new Date(cached.calculatedAt).toLocaleString('en-US');
+  }else{
+   lastRecommendations=makePredictions(weather,wind,tides);
+   savePredictionCache(fingerprint,lastRecommendations);
+   $('dataStatus').textContent=(sameSources?'Daily prediction refresh':'New forecast data detected · predictions updated')+' · '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  }
   if(weather.status==='partial'){$('notice').hidden=false;$('notice').textContent='Some town weather feeds did not update. Predictions use the available Eureka hourly forecast.'}
   render();updateCountdown();
  }catch(err){
