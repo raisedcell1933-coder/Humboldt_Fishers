@@ -842,8 +842,23 @@ def rivers_api():
             data_rows.append((date_text, cells))
         if not data_rows:
             raise RuntimeError("CDFW status table was found, but no dated status rows were available.")
-        # Source table is presented newest first; use that first dated row.
-        latest_date, latest = data_rows[0]
+        # Use the row for today's Pacific date, not a future-effective row
+        # that may already appear at the top of CDFW's table.
+        today = datetime.now(PACIFIC).date()
+        dated_rows = []
+        for date_text, cells in data_rows:
+            try:
+                row_date = datetime.strptime(date_text, "%m/%d/%Y").date()
+            except ValueError:
+                continue
+            dated_rows.append((row_date, date_text, cells))
+        if not dated_rows:
+            raise RuntimeError("CDFW status table dates could not be interpreted.")
+        eligible_rows = [item for item in dated_rows if item[0] <= today]
+        if eligible_rows:
+            _, latest_date, latest = max(eligible_rows, key=lambda item: item[0])
+        else:
+            _, latest_date, latest = min(dated_rows, key=lambda item: item[0])
         results = []
         for river in river_columns:
             idx = next((i for i,h in enumerate(headers) if " ".join(h.lower().split()) == river.lower()), None)
