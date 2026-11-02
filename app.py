@@ -1104,6 +1104,10 @@ def bay_regulations_status():
                 _BAY_REG_CHECKED_TS = time.time()
     return jsonify(_BAY_REG_CHECK)
 
+@app.route("/map")
+def map_page():
+    return render_template("map.html")
+
 @app.route("/bay")
 def bay_page():
     return render_template("bay.html")
