@@ -44,9 +44,78 @@ var status=document.getElementById('mapStatus'),waterLayer=L.featureGroup().addT
 var popularStreams=['Jacoby Creek','Freshwater Creek','Elk River','Salmon Creek','Redwood Creek','Little River','Prairie Creek','Maple Creek','Mill Creek','Cummings Creek','Eel River','Mad River','Van Duzen River','Mattole River','Bear River','Trinity River','Klamath River'];
 var streamSet=new Set(popularStreams.map(function(n){return n.toLowerCase()}));
 var bbox='40.0,-124.55,41.55,-123.35';
-var query='[out:json][timeout:25];('+
+var streamNameRegex='^(Jacoby Creek|Freshwater Creek|Elk River|Salmon Creek|Redwood Creek|Little River|Prairie Creek|Maple Creek|Mill Creek|Cummings Creek|Eel River|Mad River|Van Duzen River|Mattole River|Bear River|Trinity River|Klamath River)
+function escapeHtml(value){return String(value).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function coords(geometry){return (geometry||[]).filter(function(p){return Number.isFinite(p.lat)&&Number.isFinite(p.lon)}).map(function(p){return [p.lat,p.lon]})}
+function normalizedName(name){return String(name||'').toLowerCase().replace(/\\b(the|river|creek)\\b/g,'').replace(/[^a-z0-9]/g,'').trim()}
+function statusFor(name){return riverStatuses[normalizedName(name)]||'unconfirmed'}
+function riverColor(value){return value==='open'?'#20a464':value==='closed'?'#e53935':'#8b969d'}
+function popupHtml(name,kind){
+var state=statusFor(name),label=state==='open'?'CDFW LOW-FLOW REACH: OPEN':state==='closed'?'CDFW LOW-FLOW REACH: CLOSED':'NO VERIFIED GENERAL STATUS';
+var note=state==='unconfirmed'?'This water is not individually listed in the CDFW North Coast low-flow table. Gray does NOT mean closed, and it does NOT confirm that fishing is open. Check the exact water, reach, species, season and gear rules in the current regulations.':'This color reports only the CDFW low-flow status for the regulated reach. It does not mean every part of this named river or every species fishery has the same rules.';
+var extra='';
+if(normalizedName(name)==='klamath'){
+extra='<br><strong>Klamath River — special salmon rules:</strong><br><small>CDFW reported that the lower main stem from Highway 96 Bridge to the mouth is closed to adult fall-run Chinook harvest; jack Chinook 23 inches or shorter may still be retained in the lower main stem below Highway 96, subject to current rules. The river mouth spit is closed to all fishing for the rest of 2026. Other reaches have separate quota rules, so do not treat the whole Klamath as open or closed.</small><br><a href="https://wildlife.ca.gov/News/Archive/lower-klamath-river-quota-met" target="_blank" rel="noopener">CDFW Klamath quota notice ↗</a> · <a href="https://wildlife.ca.gov/Regulations#fresh-regs" target="_blank" rel="noopener">2026 freshwater regulations ↗</a>';
+}
+return '<strong class="water-label">'+escapeHtml(name)+'</strong><br><span style="font-weight:800;color:'+riverColor(state)+'">'+label+'</span><br><small>'+escapeHtml(note)+'</small>'+extra+(riverSourceDate?'<br><small>CDFW table date: '+escapeHtml(riverSourceDate)+(riverSourceUpdate?' · updated '+escapeHtml(riverSourceUpdate):'')+'</small>':'')+'<br><a href="https://wildlife.ca.gov/Fishing/Inland/Low-Flow/North-Coast" target="_blank" rel="noopener">Check CDFW North Coast low-flow status ↗</a>';
+}
+function addPath(points,name,kind,polygon){
+if(points.length<2)return;
+var state=statusFor(name);
+var style=kind==='river'?{color:riverColor(state),weight:4,opacity:.95}:{color:state==='unconfirmed'?'#18a3b2':riverColor(state),weight:3,opacity:.95,dashArray:'5 4'};
+var layer=polygon?L.polygon(points,{color:'#398bb8',weight:2,opacity:.95,fillColor:'#8dc8e8',fillOpacity:.38}):L.polyline(points,style);
+layer.featureName=name;layer.featureKind=kind;
+layer.bindPopup(popupHtml(name,kind));
+layer.addTo(waterLayer);
+if(!polygon&&kind==='river'){
+var key=normalizedName(name),length=0;
+for(var i=1;i<points.length;i++){length+=map.distance(points[i-1],points[i]);}
+if(!satelliteLabelCandidates[key]||length>satelliteLabelCandidates[key].length){
+satelliteLabelCandidates[key]={name:name,point:points[Math.floor(points.length/2)],length:length};
+}
+}
+}
+function loadRiverStatuses(){
+return fetch('/api/rivers',{cache:'no-store'}).then(function(response){if(!response.ok)throw new Error('CDFW status unavailable');return response.json()}).then(function(data){
+riverStatuses={};riverSourceDate=data.source_date||'';riverSourceUpdate=data.source_update||'';
+(data.rivers||[]).forEach(function(r){if(r.status==='open'||r.status==='closed')riverStatuses[normalizedName(r.name)]=r.status});
+waterLayer.eachLayer(function(layer){if(!layer.featureName||!layer.featureKind)return;var state=statusFor(layer.featureName);if(layer.featureKind==='river'||state!=='unconfirmed')layer.setStyle({color:riverColor(state)});layer.setPopupContent(popupHtml(layer.featureName,layer.featureKind))});
+return data;
+});
+}
+function processElement(el){
+var tags=el.tags||{},name=tags.name;
+if(!name)return;
+var waterway=tags.waterway||'',natural=tags.natural||'',water=tags.water||'';
+if(waterway==='canal'||waterway==='tidal_channel'){
+if(el.geometry){
+var channelPoints=coords(el.geometry);
+if(channelPoints.length>1)L.polyline(channelPoints,{color:'#071d2b',weight:6,opacity:.78,lineCap:'round',lineJoin:'round'}).addTo(satelliteChannelLayer);
+}
+return;
+}
+if(waterway==='stream'&&!streamSet.has((name||'').toLowerCase()))return;
+if(!name)return;
+if(waterway!=='river'&&waterway!=='stream'&&natural!=='water'&&natural!=='bay'&&water!=='lake'&&water!=='lagoon'&&water!=='bay')return;
+var polygon=natural==='water'||natural==='bay'||water==='lake'||water==='lagoon'||water==='bay'||(el.type==='way'&&el.geometry&&el.geometry.length>3&&el.geometry[0].lat===el.geometry[el.geometry.length-1].lat&&el.geometry[0].lon===el.geometry[el.geometry.length-1].lon);
+if(el.geometry){addPath(coords(el.geometry),name,waterway==='river'?'river':'stream',polygon);return;}
+if(el.members){el.members.forEach(function(member){if(member.role&&member.role!=='outer'&&polygon)return;if(member.geometry)addPath(coords(member.geometry),name,waterway==='river'?'river':'stream',polygon)})}
+}
+Promise.all([fetch('https://overpass-api.de/api/interpreter',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:'data='+encodeURIComponent(query)}).then(function(response){if(!response.ok)throw new Error('Map data service unavailable');return response.json()}),loadRiverStatuses().catch(function(){return null})])
+.then(function(results){
+(results[0].elements||[]).forEach(processElement);
+Object.keys(satelliteLabelCandidates).forEach(function(key){
+var item=satelliteLabelCandidates[key],nameIcon=L.divIcon({className:'satellite-water-name',html:'<span>'+escapeHtml(item.name)+'</span>',iconSize:[0,0],iconAnchor:[0,0]});
+L.marker(item.point,{icon:nameIcon,interactive:false,keyboard:false}).addTo(satelliteNameLayer);
+});
+status.textContent=waterLayer.getLayers().length?'Green = open, red = closed, gray = not listed or unverified (based on the latest CDFW low-flow table). Select a feature to see its name and status.':'No named water features were returned. Try again later.';
+})
+.catch(function(){status.textContent='Map water features could not load right now. The simplified base map is still available.'});
+})();
+</script></body></html>;
+var query='[out:json][timeout:18];('+
 'way["waterway"="river"]["name"]('+bbox+');relation["waterway"="river"]["name"]('+bbox+');'+
-'way["waterway"="stream"]["name"]('+bbox+');relation["waterway"="stream"]["name"]('+bbox+');'+
+'way["waterway"="stream"]["name"~"'+streamNameRegex+'",i]('+bbox+');'+
 'way["waterway"~"^(canal|tidal_channel)$"]('+bbox+');'+
 'way["natural"="water"]["name"]('+bbox+');relation["natural"="water"]["name"]('+bbox+');'+
 'way["natural"="bay"]["name"]('+bbox+');relation["natural"="bay"]["name"]('+bbox+');'+
