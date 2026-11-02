@@ -28,11 +28,11 @@ var satelliteMode=false,mapShell=document.getElementById('mapShell'),viewToggle=
 viewToggle.addEventListener('click',function(){
 satelliteMode=!satelliteMode;
 if(satelliteMode){
-map.removeLayer(streetLayer);satelliteLayer.addTo(map);satelliteLabels.addTo(map);map.removeLayer(waterLayer);satelliteNameLayer.addTo(map);mapShell.classList.add('satellite-mode');
+map.removeLayer(streetLayer);satelliteLayer.addTo(map);satelliteLabels.addTo(map);map.removeLayer(waterLayer);satelliteChannelLayer.addTo(map);satelliteNameLayer.addTo(map);mapShell.classList.add('satellite-mode');
 viewToggle.textContent='Street Map';viewToggle.setAttribute('aria-pressed','true');
 if(mapStatus)mapStatus.style.display='none';
 }else{
-map.removeLayer(satelliteLabels);map.removeLayer(satelliteLayer);streetLayer.addTo(map);waterLayer.addTo(map);map.removeLayer(satelliteNameLayer);mapShell.classList.remove('satellite-mode');
+map.removeLayer(satelliteLabels);map.removeLayer(satelliteLayer);streetLayer.addTo(map);waterLayer.addTo(map);map.removeLayer(satelliteChannelLayer);map.removeLayer(satelliteNameLayer);mapShell.classList.remove('satellite-mode');
 viewToggle.textContent='Satellite View';viewToggle.setAttribute('aria-pressed','false');
 if(mapStatus)mapStatus.style.display='';
 }
@@ -40,13 +40,14 @@ setTimeout(function(){map.invalidateSize()},80);
 });
 document.getElementById('zoomIn').addEventListener('click',function(){map.zoomIn()});
 document.getElementById('zoomOut').addEventListener('click',function(){map.zoomOut()});
-var status=document.getElementById('mapStatus'),waterLayer=L.featureGroup().addTo(map),satelliteNameLayer=L.layerGroup(),riverStatuses={},riverSourceDate='',riverSourceUpdate='';
+var status=document.getElementById('mapStatus'),waterLayer=L.featureGroup().addTo(map),satelliteChannelLayer=L.layerGroup(),satelliteNameLayer=L.layerGroup(),riverStatuses={},riverSourceDate='',riverSourceUpdate='';
 var popularStreams=['Jacoby Creek','Freshwater Creek','Elk River','Salmon Creek','Redwood Creek','Little River','Prairie Creek','Maple Creek','Mill Creek','Cummings Creek','Eel River','Mad River','Van Duzen River','Mattole River','Bear River','Trinity River','Klamath River'];
 var streamSet=new Set(popularStreams.map(function(n){return n.toLowerCase()}));
 var bbox='40.0,-124.55,41.55,-123.35';
 var query='[out:json][timeout:25];('+
 'way["waterway"="river"]["name"]('+bbox+');relation["waterway"="river"]["name"]('+bbox+');'+
 'way["waterway"="stream"]["name"]('+bbox+');relation["waterway"="stream"]["name"]('+bbox+');'+
+'way["waterway"~"^(canal|tidal_channel)$"]('+bbox+');'+
 'way["natural"="water"]["name"]('+bbox+');relation["natural"="water"]["name"]('+bbox+');'+
 'way["natural"="bay"]["name"]('+bbox+');relation["natural"="bay"]["name"]('+bbox+');'+
 ');out geom;';
@@ -90,7 +91,15 @@ function processElement(el){
 var tags=el.tags||{},name=tags.name;
 if(!name)return;
 var waterway=tags.waterway||'',natural=tags.natural||'',water=tags.water||'';
-if(waterway==='stream'&&!streamSet.has(name.toLowerCase()))return;
+if(waterway==='canal'||waterway==='tidal_channel'){
+if(el.geometry){
+var channelPoints=coords(el.geometry);
+if(channelPoints.length>1)L.polyline(channelPoints,{color:'#071d2b',weight:6,opacity:.78,lineCap:'round',lineJoin:'round'}).addTo(satelliteChannelLayer);
+}
+return;
+}
+if(waterway==='stream'&&!streamSet.has((name||'').toLowerCase()))return;
+if(!name)return;
 if(waterway!=='river'&&waterway!=='stream'&&natural!=='water'&&natural!=='bay'&&water!=='lake'&&water!=='lagoon'&&water!=='bay')return;
 var polygon=natural==='water'||natural==='bay'||water==='lake'||water==='lagoon'||water==='bay'||(el.type==='way'&&el.geometry&&el.geometry.length>3&&el.geometry[0].lat===el.geometry[el.geometry.length-1].lat&&el.geometry[0].lon===el.geometry[el.geometry.length-1].lon);
 if(el.geometry){addPath(coords(el.geometry),name,waterway==='river'?'river':'stream',polygon);return;}
