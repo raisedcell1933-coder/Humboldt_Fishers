@@ -31,6 +31,7 @@
 var $=function(id){return document.getElementById(id)};
 var lastRecommendations=[],countdownTimer=null;
 function hourKey(value){return String(value||'').slice(0,16).replace(' ','T')}
+function localStamp(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'T'+String(d.getHours()).padStart(2,'0')+':00'}
 function localDate(value){var s=String(value||'').replace(' ','T');var m=s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);return m?new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5]):new Date(s)}
 function clamp(n,min,max){return Math.max(min,Math.min(max,n))}
 function fmtTime(d){return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}
@@ -92,7 +93,7 @@ function makePredictions(weather,wind,tides){
   if(tideStart===null||tideEnd===null||tideEnd-tideStart<0.12)continue;
   var windSamples=[],weatherSamples=[];
   for(var h=0;h<3;h++){
-   var sampleTime=new Date(start.getTime()+h*60*60*1000),key=hourKey(sampleTime.toISOString().slice(0,16));
+   var sampleTime=new Date(start.getTime()+h*60*60*1000),key=hourKey(localStamp(sampleTime));
    if(windByHour[key])windSamples.push(windByHour[key]);
    if(weatherByHour[key])weatherSamples.push(weatherByHour[key]);
   }
