@@ -9,6 +9,7 @@
 </style>
 </head>
 <body>
+{% if current_google_user %}
 <header class="topbar"><a class="brand" href="/">FISH <span>HUMBOLDT</span></a><nav class="site-nav" aria-label="Main navigation"><a href="/">Home</a><a href="/moon-cycle">Moon Cycle</a><a href="/tides">Tides</a><a href="/wind">Wind</a><a href="/weather">Weather</a><a href="/fishing-reports">Fishing Reports</a><a href="/fishing-stories">Fishing Stories</a><a href="/rivers">Rivers</a><a href="/bay">Bay</a><a href="/species">Species</a><a href="/map">Map</a><a href="/best-days" aria-current="page">Best Days to Go Fishing</a></nav><button class="menu-toggle" type="button" aria-label="Open navigation" aria-expanded="false">☰</button></header><div class="menu-backdrop"></div>
 <main>
 <section class="hero"><div class="eyebrow">HUMBOLDT COUNTY · FISHING OUTLOOK</div><h1>BEST DAYS TO GO FISHING</h1><p>AI-powered fishing predictions for Humboldt County. The prediction engine compares hourly wind and weather with NOAA high-tide predictions to find the strongest upcoming two-hour windows.</p></section>
@@ -184,4 +185,29 @@ setInterval(loadData,15*60*1000);
 setInterval(updateCountdown,60*1000);
 })();
 </script>
+{% else %}
+<style>
+.login-gate{min-height:100vh;display:grid;place-items:center;padding:24px;background:linear-gradient(145deg,#edf5f8,#fff)}
+.login-gate-card{width:min(100%,470px);padding:38px 32px;background:#fff;border:1px solid #dce7ed;border-radius:20px;box-shadow:0 18px 55px rgba(13,43,61,.13);text-align:center}
+.login-gate-brand{font-size:15px;font-weight:900;letter-spacing:2px;color:#102c3d;margin-bottom:28px}.login-gate-brand span{color:#159bd0}
+.login-gate-icon{width:58px;height:58px;border-radius:18px;background:#eaf6fb;color:#168bbd;display:grid;place-items:center;font-size:28px;margin:0 auto 20px}
+.login-gate-card h1{font-size:25px;line-height:1.2;color:#102c3d;margin:0 0 12px}.login-gate-card p{font-size:15px;line-height:1.6;color:#5d7180;margin:0 0 25px}
+.google-signin{display:flex;justify-content:center;align-items:center;gap:12px;width:100%;padding:14px 18px;border:1px solid #d6e0e6;border-radius:9px;background:#fff;color:#243746;font-size:15px;font-weight:700;text-decoration:none;box-shadow:0 2px 5px #102c3d0c;transition:background .15s,box-shadow .15s}
+.google-signin:hover{background:#f8fbfd;box-shadow:0 4px 12px #102c3d18}.google-signin svg{width:19px;height:19px}
+.login-gate-note{margin-top:18px!important;font-size:12px!important;color:#8796a0!important;margin-bottom:0!important}
+</style>
+<div class="login-gate">
+ <section class="login-gate-card" role="dialog" aria-modal="true" aria-labelledby="loginGateTitle">
+  <div class="login-gate-brand">FISH <span>HUMBOLDT</span></div>
+  <div class="login-gate-icon" aria-hidden="true">🎣</div>
+  <h1 id="loginGateTitle">Sign in to use Best Days to Go Fishing</h1>
+  <p>You need to sign in with your Google account to view Humboldt County's fishing predictions and recommended fishing windows.</p>
+  <a class="google-signin" href="{{ url_for('login_google', next='/best-days') }}">
+   <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.91c-.58 2.96-2.22 5.48-4.65 7.18l7.55 5.86c4.41-4.07 7.17-10.07 7.17-17.51z"/><path fill="#FBBC05" d="M10.53 28.59A14.4 14.4 0 0 1 9.75 24c0-1.59.27-3.13.76-4.59l-7.98-6.19A23.9 23.9 0 0 0 0 24c0 3.87.93 7.53 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.9-5.94l-7.55-5.86c-2.09 1.4-4.76 2.23-8.35 2.23-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+   Sign in with Google
+  </a>
+  <p class="login-gate-note">After signing in, you'll be returned directly to this page.</p>
+ </section>
+</div>
+{% endif %}
 </body></html>
