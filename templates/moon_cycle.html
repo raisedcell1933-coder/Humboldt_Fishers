@@ -67,7 +67,7 @@ function toggleMoonNav(event){
     var b=document.getElementById('menuToggle'),n=document.getElementById('mainNav');
     if(!b||!n)return;
     b.onclick=toggleMoonNav;
-    n.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){n.classList.remove('open');n.style.transform='translateX(110%)';n.style.visibility='hidden';b.setAttribute('aria-expanded','false');});});
+    n.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){n.classList.remove('mobile-open');b.setAttribute('aria-expanded','false');});});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initMoonNav);else initMoonNav();
 })();
