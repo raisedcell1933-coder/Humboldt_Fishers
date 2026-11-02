@@ -71,7 +71,7 @@ a{color:#238fca}
 <section class="flow-section" aria-labelledby="flow-title">
 <h2 id="flow-title">Weekly River Height & Flow</h2>
 <p class="flow-intro">Monday–Sunday charts using NOAA/NWS gauge observations and forecasts where available. Height is shown in feet; flow is shown in cubic feet per second (CFS).</p>
-<div class="notice">Charts refresh every hour and switch to the next Monday–Sunday week at 2:00 AM Pacific on Sunday. NOAA may not publish a forecast for every gauge or every hour; missing values are left blank. A gauge represents one location, not every fishing access point along the river.</div>
+<div class="notice">Charts check for new NOAA data every 15 minutes and switch to the next Monday–Sunday week at 2:00 AM Pacific on Sunday. NOAA may not publish a forecast for every gauge or every hour; missing values are left blank. A gauge represents one location, not every fishing access point along the river.</div>
 <div class="actions"><button class="btn" id="flow-refresh" onclick="loadFlow(true)">Refresh river charts</button><span id="flow-meta">Loading NOAA river data…</span></div>
 <div class="flow-warning">These charts are informational, not a safety guarantee. Check official flood alerts and local conditions before entering or crossing a river.</div>
 <section class="flow-grid" id="flow-grid" aria-live="polite"></section>
@@ -207,7 +207,7 @@ function draw(metric,canvasId,color){const ctx=document.getElementById(canvasId)
 try{draw('stage',id+'-stage','#238fca');draw('flow',id+'-flow','#20a464')}catch(e){document.getElementById(id+'-stage')?.parentElement.insertAdjacentHTML('beforeend','<p class="flow-state">Chart could not be drawn in this browser. Use the official gauge link for its hydrograph.</p>');}
 }
 async function loadFlow(force=false){flowBtn.disabled=true;flowBtn.textContent='Loading…';flowMeta.textContent='Contacting NOAA/NWS…';flowCharts.forEach(c=>c.destroy());flowCharts=[];flowGrid.innerHTML='';try{const r=await fetch('/api/river-flow'+(force?'?refresh=1':''),{cache:'no-store'});const d=await r.json();if(!r.ok)throw new Error(d.error||'Request failed');const start=getWeekStart(),end=addDays(start,7);flowMeta.textContent='Week: '+fmtDate(start)+' – '+fmtDate(addDays(end,-1))+' · Checked '+new Date(d.updated).toLocaleString();(d.gauges||[]).forEach((g,i)=>renderGauge(g,i,start,end));}catch(e){flowMeta.textContent='Unable to retrieve NOAA data. Try again shortly.';flowGrid.innerHTML='<p class="flow-state">The NOAA river data service could not be reached. The official gauge links remain available on the river status cards above.</p>';}finally{flowBtn.disabled=false;flowBtn.textContent='Refresh river charts';}}
-loadFlow();setInterval(()=>loadFlow(false),60*60*1000);
+loadFlow();setInterval(()=>loadFlow(false),15*60*1000);
 </script>
 
 
