@@ -46,30 +46,37 @@ td{color:#203c4a!important}
 .site-nav a:hover,.site-nav a[aria-current="page"]{color:#22c9ff!important;background:#0a2d3e!important;border-radius:7px 7px 0 0!important}
 .site-nav a[aria-current="page"]{border-bottom:3px solid #13c7f4!important}
 .menu-backdrop{position:fixed!important;inset:0!important;z-index:9999!important;background:rgba(0,0,0,.55)!important;opacity:0!important;visibility:hidden!important;transition:opacity .24s ease,visibility .24s ease!important}
-.menu-backdrop.open{opacity:1!important;visibility:visible!important}</style></head><body><header class="topbar"><a class="brand" href="/">FISH <span>HUMBOLDT</span></a><button class="menu-toggle" id="menuToggle" type="button" aria-expanded="false" aria-controls="mainNav" aria-label="Open navigation" onclick="return toggleMoonNav(event)">☰</button><nav class="site-nav" id="mainNav" aria-label="Main navigation"><a href="/">Home</a><a href="/moon-cycle">Moon Cycle</a><a href="/tides">Tides</a><a href="/wind">Wind</a><a href="/weather">Weather</a><a href="/fishing-reports">Fishing Reports</a><a href="/fishing-stories">Fishing Stories</a><a href="/rivers">Rivers</a><a href="/bay">Bay</a><a href="/species">Species</a><a href="/map">Map</a></nav></header>
+.menu-backdrop.open{opacity:1!important;visibility:visible!important}</style><style>#mainNav.mobile-open,#mainNav.open{display:flex!important;transform:translateX(0)!important;visibility:visible!important;pointer-events:auto!important}#menuToggle{pointer-events:auto!important;cursor:pointer!important}</style></head><body><header class="topbar"><a class="brand" href="/">FISH <span>HUMBOLDT</span></a><button class="menu-toggle" id="menuToggle" type="button" aria-expanded="false" aria-controls="mainNav" aria-label="Open navigation" >☰</button><nav class="site-nav" id="mainNav" aria-label="Main navigation"><a href="/">Home</a><a href="/moon-cycle">Moon Cycle</a><a href="/tides">Tides</a><a href="/wind">Wind</a><a href="/weather">Weather</a><a href="/fishing-reports">Fishing Reports</a><a href="/fishing-stories">Fishing Stories</a><a href="/rivers">Rivers</a><a href="/bay">Bay</a><a href="/species">Species</a><a href="/map">Map</a></nav></header>
 <main><section class="intro"><h1>Moon Cycle &amp; <span style="color:#18bce8">Sun Times</span></h1><p class="muted">Daily moon phase, sunrise and sunset, moonrise and moonset, and the compass direction for each event in Eureka, California.</p></section>
 <div class="notice"><strong>Two-week view:</strong> The tables show Monday through Sunday for this week and next week. Times are local Pacific time. Directions are compass bearings measured clockwise from true north (N = 0°, E = 90°, S = 180°, W = 270°). Local terrain and a blocked horizon can change what you see.</div>
 {% if error %}<div class="error">{{ error }} Please check your internet connection and refresh the page. If the problem continues, try again later.</div>{% else %}
 {% for week in weeks %}<section class="week"><h2>{{ 'This week' if loop.index == 1 else 'Next week' }}</h2><div class="week-meta">{{ week.start }} – {{ week.end }} · Updates automatically as the calendar week changes · Data calculated {{ generated_at }}</div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Moon phase</th><th>Sunrise</th><th>Sunset</th><th>Moonrise</th><th>Moonset</th></tr></thead><tbody>{% for day in week.days %}<tr><td><strong>{{ day.date }}</strong></td><td><span class="phase">{{ day.phase }}</span><span class="illumination">{{ day.illumination }}% illuminated</span></td><td>{% if day.sunrise %}<span class="event">{{ day.sunrise.time }}</span><span class="direction">{{ day.sunrise.direction }} · {{ day.sunrise.degrees }}°</span>{% else %}<span class="empty">No rise</span>{% endif %}</td><td>{% if day.sunset %}<span class="event">{{ day.sunset.time }}</span><span class="direction">{{ day.sunset.direction }} · {{ day.sunset.degrees }}°</span>{% else %}<span class="empty">No set</span>{% endif %}</td><td>{% if day.moonrise %}<span class="event">{{ day.moonrise.time }}</span>{% else %}<span class="empty">No rise</span>{% endif %}</td><td>{% if day.moonset %}<span class="event">{{ day.moonset.time }}</span>{% else %}<span class="empty">No set</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div></section>{% endfor %}{% endif %}
 <div class="footer">Sun and Moon times, moon phase, illumination, and sunrise/sunset compass bearings are provided by SunriseSunset.io for Eureka, Humboldt County, California. Times are estimates and actual visibility can vary with local terrain and atmospheric conditions. Data is requested for the current and next Monday–Sunday weeks whenever this page loads. Moonrise/moonset compass bearings are not supplied by this data source. Powered by <a href="https://sunrisesunset.io/" target="_blank" rel="noopener noreferrer">SunriseSunset.io</a>.</div></main><script>
-function toggleMoonNav(event){
-  if(event){event.preventDefault();event.stopPropagation();}
-  var b=document.getElementById('menuToggle');
-  var n=document.getElementById('mainNav');
-  if(!b||!n)return false;
-  var isOpen=n.classList.contains('mobile-open');
-  if(isOpen){n.classList.remove('mobile-open');b.setAttribute('aria-expanded','false');b.setAttribute('aria-label','Open navigation');}
-  else{n.classList.add('mobile-open');b.setAttribute('aria-expanded','true');b.setAttribute('aria-label','Close navigation');}
-  return false;
-}
 (function(){
-  function initMoonNav(){
-    var b=document.getElementById('menuToggle'),n=document.getElementById('mainNav');
-    if(!b||!n)return;
-    b.onclick=toggleMoonNav;
-    n.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){n.classList.remove('mobile-open');b.setAttribute('aria-expanded','false');});});
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initMoonNav);else initMoonNav();
+ function initMoonNav(){
+  var button=document.getElementById('menuToggle');
+  var nav=document.getElementById('mainNav');
+  if(!button||!nav||button.dataset.navReady==='1')return;
+  button.dataset.navReady='1';
+  button.addEventListener('click',function(e){
+   e.preventDefault();
+   e.stopPropagation();
+   var opening=!nav.classList.contains('mobile-open');
+   nav.classList.toggle('mobile-open',opening);
+   nav.classList.toggle('open',opening);
+   button.setAttribute('aria-expanded',opening?'true':'false');
+   button.setAttribute('aria-label',opening?'Close navigation':'Open navigation');
+  });
+  nav.querySelectorAll('a').forEach(function(link){
+   link.addEventListener('click',function(){
+    nav.classList.remove('mobile-open','open');
+    button.setAttribute('aria-expanded','false');
+    button.setAttribute('aria-label','Open navigation');
+   });
+  });
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initMoonNav);
+ else initMoonNav();
 })();
 </script>
 <style>
