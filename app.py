@@ -32,12 +32,17 @@ ADMIN_USERNAME = os.environ.get("HUMBOLDT_FISHERS_ADMIN_USER", "admin")
 # For public hosting, set HUMBOLDT_FISHERS_ADMIN_PASSWORD to a strong secret in host settings.
 ADMIN_PASSWORD = os.environ.get("HUMBOLDT_FISHERS_ADMIN_PASSWORD", "")
 BASE_DIR = Path(__file__).resolve().parent
+# Render's filesystem is temporary unless a persistent disk is mounted.
+# Set HUMBOLDT_FISHERS_DATA_DIR to that disk's mount path (commonly /var/data)
+# so story submissions, moderation status, and uploaded photos survive restarts.
+DATA_DIR = Path(os.environ.get("HUMBOLDT_FISHERS_DATA_DIR", str(BASE_DIR))).expanduser()
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 @app.route('/favicon.ico')
 def favicon():
     return send_from_directory(BASE_DIR / 'static', 'favicon.svg', mimetype='image/svg+xml')
-UPLOAD_DIR = BASE_DIR / "private_uploads"
-DB_PATH = BASE_DIR / "photo_submissions.sqlite3"
+UPLOAD_DIR = DATA_DIR / "private_uploads"
+DB_PATH = DATA_DIR / "photo_submissions.sqlite3"
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
 UPLOAD_DIR.mkdir(exist_ok=True)
