@@ -15,7 +15,13 @@
 .site-nav a:hover,.site-nav a[aria-current="page"]{color:#22c9ff!important;background:#0a2d3e!important;border-radius:7px 7px 0 0!important}
 .site-nav a[aria-current="page"]{border-bottom:3px solid #13c7f4!important}
 .menu-backdrop{position:fixed!important;inset:0!important;z-index:9999!important;background:rgba(0,0,0,.55)!important;opacity:0!important;visibility:hidden!important;transition:opacity .24s ease,visibility .24s ease!important}
-.menu-backdrop.open{opacity:1!important;visibility:visible!important}</style></head><body>
+.menu-backdrop.open{opacity:1!important;visibility:visible!important}</style><style id="map-menu-layer-fix">
+.site-nav{z-index:10010!important;pointer-events:auto!important}
+.site-nav.mobile-open{z-index:10010!important;pointer-events:auto!important;visibility:visible!important;transform:translateX(0)!important}
+.menu-backdrop{z-index:10000!important;pointer-events:none!important}
+.menu-backdrop.open{pointer-events:auto!important}
+.menu-toggle{z-index:10020!important;pointer-events:auto!important}
+</style></head><body>
 <header class="topbar"><a class="brand" href="/">FISH <span>HUMBOLDT</span></a><nav class="site-nav" aria-label="Main navigation"><a href="/">Home</a><a href="/moon-cycle">Moon Cycle</a><a href="/tides">Tides</a><a href="/wind">Wind</a><a href="/weather">Weather</a><a href="/fishing-reports">Fishing Reports</a><a href="/fishing-stories">Fishing Stories</a><a href="/rivers">Rivers</a><a href="/bay">Bay</a><a href="/species">Species</a><a href="/map">Map</a></nav><button class="menu-toggle" aria-label="Open navigation" aria-expanded="false">☰</button></header><div class="menu-backdrop"></div>
 <main class="wrap"><div class="eyebrow">HUMBOLDT COUNTY · NORTH COAST</div><h1>Humboldt County Fishing Map</h1><p class="intro">Explore the county's coastline, ocean, Humboldt Bay, rivers, streams, cities, and towns. Drag to move around and use the plus and minus buttons to zoom.</p>
 <div class="map-shell"><div class="zoom-controls"><button id="zoomIn" aria-label="Zoom in">+</button><button id="zoomOut" aria-label="Zoom out">−</button></div><div id="map" aria-label="Interactive map of Humboldt County"></div></div>
