@@ -39,9 +39,13 @@ function normalizedName(name){return String(name||'').toLowerCase().replace(/\\b
 function statusFor(name){return riverStatuses[normalizedName(name)]||'unconfirmed'}
 function riverColor(value){return value==='open'?'#20a464':value==='closed'?'#e53935':'#8b969d'}
 function popupHtml(name,kind){
-var state=statusFor(name),label=state==='open'?'OPEN TO FISHING':state==='closed'?'CLOSED TO FISHING':'STATUS NOT LISTED / UNVERIFIED';
-var note=state==='unconfirmed'?'This water is not individually listed in the CDFW table, so no open/closed status is assumed.':'CDFW low-flow status only. Confirm the exact reach and all current fishing regulations before fishing.';
-return '<strong class="water-label">'+escapeHtml(name)+'</strong><br><span style="font-weight:800;color:'+riverColor(state)+'">'+label+'</span><br><small>'+escapeHtml(note)+'</small>'+(riverSourceDate?'<br><small>CDFW table date: '+escapeHtml(riverSourceDate)+(riverSourceUpdate?' · updated '+escapeHtml(riverSourceUpdate):'')+'</small>':'')+'<br><a href="https://wildlife.ca.gov/Fishing/Inland/Low-Flow/North-Coast" target="_blank" rel="noopener">Check CDFW status ↗</a>';
+var state=statusFor(name),label=state==='open'?'CDFW LOW-FLOW REACH: OPEN':state==='closed'?'CDFW LOW-FLOW REACH: CLOSED':'NO VERIFIED GENERAL STATUS';
+var note=state==='unconfirmed'?'This water is not individually listed in the CDFW North Coast low-flow table. Gray does NOT mean closed, and it does NOT confirm that fishing is open. Check the exact water, reach, species, season and gear rules in the current regulations.':'This color reports only the CDFW low-flow status for the regulated reach. It does not mean every part of this named river or every species fishery has the same rules.';
+var extra='';
+if(normalizedName(name)==='klamath'){
+extra='<br><strong>Klamath River — special salmon rules:</strong><br><small>CDFW reported that the lower main stem from Highway 96 Bridge to the mouth is closed to adult fall-run Chinook harvest; jack Chinook 23 inches or shorter may still be retained in the lower main stem below Highway 96, subject to current rules. The river mouth spit is closed to all fishing for the rest of 2026. Other reaches have separate quota rules, so do not treat the whole Klamath as open or closed.</small><br><a href="https://wildlife.ca.gov/News/Archive/lower-klamath-river-quota-met" target="_blank" rel="noopener">CDFW Klamath quota notice ↗</a> · <a href="https://wildlife.ca.gov/Regulations#fresh-regs" target="_blank" rel="noopener">2026 freshwater regulations ↗</a>';
+}
+return '<strong class="water-label">'+escapeHtml(name)+'</strong><br><span style="font-weight:800;color:'+riverColor(state)+'">'+label+'</span><br><small>'+escapeHtml(note)+'</small>'+extra+(riverSourceDate?'<br><small>CDFW table date: '+escapeHtml(riverSourceDate)+(riverSourceUpdate?' · updated '+escapeHtml(riverSourceUpdate):'')+'</small>':'')+'<br><a href="https://wildlife.ca.gov/Fishing/Inland/Low-Flow/North-Coast" target="_blank" rel="noopener">Check CDFW North Coast low-flow status ↗</a>';
 }
 function addPath(points,name,kind,polygon){
 if(points.length<2)return;
