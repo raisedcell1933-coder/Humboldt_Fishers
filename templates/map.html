@@ -7,8 +7,8 @@
 <header class="topbar"><a class="brand" href="/">FISH <span>HUMBOLDT</span></a><nav class="site-nav" aria-label="Main navigation"><a href="/">Home</a><a href="/moon-cycle">Moon Cycle</a><a href="/tides">Tides</a><a href="/wind">Wind</a><a href="/weather">Weather</a><a href="/fishing-reports">Fishing Reports</a><a href="/fishing-stories">Fishing Stories</a><a href="/rivers">Rivers</a><a href="/map" aria-current="page">Map</a><a href="/bay">Bay</a><a href="/species">Species</a></nav><button class="menu-toggle" aria-label="Open navigation" aria-expanded="false">☰</button></header><div class="menu-backdrop"></div>
 <main class="wrap"><div class="eyebrow">HUMBOLDT COUNTY · NORTH COAST</div><h1>Humboldt County Fishing Map</h1><p class="intro">Explore the county's coastline, ocean, Humboldt Bay, rivers, streams, cities, and towns. Drag to move around and use the plus and minus buttons to zoom.</p>
 <div class="map-shell"><div class="zoom-controls"><button id="zoomIn" aria-label="Zoom in">+</button><button id="zoomOut" aria-label="Zoom out">−</button></div><div id="map" aria-label="Interactive map of Humboldt County"></div></div>
-<div class="map-note"><strong>Map information:</strong> The map uses OpenStreetMap data to show roads, place names, waterways, and coastline. The map is kept at a county-wide scale so the main rivers and larger streams are easier to pick out; smaller creeks are intentionally de-emphasized by limiting zoom. This is a general reference map, not a guarantee of public fishing access, navigability, property boundaries, or legal fishing areas. <a href="https://humboldtgov.org/GIS" target="_blank" rel="noopener">Humboldt County official GIS maps</a>.</div></main>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<div class="map-note"><strong>Map information:</strong> The map uses OpenStreetMap data to show roads, place names, waterways, and coastline. Click a blue major river or a highlighted bay, lake, or lagoon to see its mapped name. Only named major streams and mapped water bodies are clickable; unnamed or smaller creeks may not appear. This is a general reference map, not a guarantee of public fishing access, navigability, property boundaries, or legal fishing areas. <a href="https://humboldtgov.org/GIS" target="_blank" rel="noopener">Humboldt County official GIS maps</a>.</div></main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script src="https://unpkg.com/esri-leaflet@3.0.14/dist/esri-leaflet.js"></script>
 <script>
 (function(){
 var nav=document.querySelector('.site-nav'),btn=document.querySelector('.menu-toggle'),back=document.querySelector('.menu-backdrop');
@@ -19,6 +19,29 @@ var map=L.map('map',{zoomControl:false,scrollWheelZoom:true,minZoom:9,maxZoom:12
 var bounds=L.latLngBounds([[40.0,-124.45],[41.55,-123.45]]);
 map.setMaxBounds(bounds.pad(0.04));
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(map);
+var namedWater=L.layerGroup().addTo(map);
+var majorStreams=L.esri.featureLayer({
+ url:'https://cty-gis-web.co.humboldt.ca.us/server/rest/services/Web/Critical_Facilities/FeatureServer/17',
+ where:"STREAMNAME IS NOT NULL AND STREAMNAME <> ''",
+ simplifyFactor:0.5,
+ precision:5,
+ style:function(){return {color:'#087eae',weight:3,opacity:0.9};},
+ onEachFeature:function(feature,layer){
+   var name=feature.properties.STREAMNAME;
+   if(name) layer.bindPopup('<strong>'+String(name).replace(/[&<>"]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];})+'</strong><br><span>River / major stream</span>');
+ }
+}).addTo(namedWater);
+var waterBodies=L.esri.featureLayer({
+ url:'https://cty-gis-web.co.humboldt.ca.us/server/rest/services/Web/Jurisdiction_Boundaries_Public/MapServer/31',
+ simplifyFactor:0.5,
+ precision:5,
+ style:function(){return {color:'#1685b5',weight:2,fillColor:'#59c7e8',fillOpacity:0.18};},
+ onEachFeature:function(feature,layer){
+   var name=feature.properties.BODY;
+   if(name) layer.bindPopup('<strong>'+String(name).replace(/[&<>"]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];})+'</strong><br><span>Bay / lake / lagoon / water body</span>');
+ }
+}).addTo(namedWater);
+
 document.getElementById('zoomIn').addEventListener('click',function(){map.zoomIn()});
 document.getElementById('zoomOut').addEventListener('click',function(){map.zoomOut()});
 })();
