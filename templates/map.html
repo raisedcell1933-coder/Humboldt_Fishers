@@ -43,8 +43,16 @@ document.getElementById('zoomOut').addEventListener('click',function(){map.zoomO
 var status=document.getElementById('mapStatus'),waterLayer=L.featureGroup().addTo(map),satelliteChannelLayer=L.layerGroup(),satelliteNameLayer=L.layerGroup(),satelliteLabelCandidates={},riverStatuses={},riverSourceDate='',riverSourceUpdate='';
 var popularStreams=['Jacoby Creek','Freshwater Creek','Elk River','Salmon Creek','Redwood Creek','Little River','Prairie Creek','Maple Creek','Mill Creek','Cummings Creek','Eel River','Mad River','Van Duzen River','Mattole River','Bear River','Trinity River','Klamath River'];
 var streamSet=new Set(popularStreams.map(function(n){return n.toLowerCase()}));
+var popularStreams=['Jacoby Creek','Freshwater Creek','Elk River','Salmon Creek','Redwood Creek','Little River','Prairie Creek','Maple Creek','Mill Creek','Cummings Creek','Eel River','Mad River','Van Duzen River','Mattole River','Bear River','Trinity River','Klamath River'];
+var streamSet=new Set(popularStreams.map(function(n){return n.toLowerCase()}));
 var bbox='40.0,-124.55,41.55,-123.35';
-var streamNameRegex='^(Jacoby Creek|Freshwater Creek|Elk River|Salmon Creek|Redwood Creek|Little River|Prairie Creek|Maple Creek|Mill Creek|Cummings Creek|Eel River|Mad River|Van Duzen River|Mattole River|Bear River|Trinity River|Klamath River)
+var query='[out:json][timeout:25];('+
+'way["waterway"="river"]["name"]('+bbox+');relation["waterway"="river"]["name"]('+bbox+');'+
+'way["waterway"="stream"]["name"]('+bbox+');relation["waterway"="stream"]["name"]('+bbox+');'+
+'way["waterway"~"^(canal|tidal_channel)$"]('+bbox+');'+
+'way["natural"="water"]["name"]('+bbox+');relation["natural"="water"]["name"]('+bbox+');'+
+'way["natural"="bay"]["name"]('+bbox+');relation["natural"="bay"]["name"]('+bbox+');'+
+');out geom;';
 function escapeHtml(value){return String(value).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function coords(geometry){return (geometry||[]).filter(function(p){return Number.isFinite(p.lat)&&Number.isFinite(p.lon)}).map(function(p){return [p.lat,p.lon]})}
 function normalizedName(name){return String(name||'').toLowerCase().replace(/\\b(the|river|creek)\\b/g,'').replace(/[^a-z0-9]/g,'').trim()}
