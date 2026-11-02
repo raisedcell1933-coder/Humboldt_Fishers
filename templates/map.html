@@ -40,7 +40,7 @@ setTimeout(function(){map.invalidateSize()},80);
 });
 document.getElementById('zoomIn').addEventListener('click',function(){map.zoomIn()});
 document.getElementById('zoomOut').addEventListener('click',function(){map.zoomOut()});
-var status=document.getElementById('mapStatus'),waterLayer=L.featureGroup().addTo(map),satelliteChannelLayer=L.layerGroup(),satelliteNameLayer=L.layerGroup(),riverStatuses={},riverSourceDate='',riverSourceUpdate='';
+var status=document.getElementById('mapStatus'),waterLayer=L.featureGroup().addTo(map),satelliteChannelLayer=L.layerGroup(),satelliteNameLayer=L.layerGroup(),satelliteLabelCandidates={},riverStatuses={},riverSourceDate='',riverSourceUpdate='';
 var popularStreams=['Jacoby Creek','Freshwater Creek','Elk River','Salmon Creek','Redwood Creek','Little River','Prairie Creek','Maple Creek','Mill Creek','Cummings Creek','Eel River','Mad River','Van Duzen River','Mattole River','Bear River','Trinity River','Klamath River'];
 var streamSet=new Set(popularStreams.map(function(n){return n.toLowerCase()}));
 var bbox='40.0,-124.55,41.55,-123.35';
@@ -74,9 +74,11 @@ layer.featureName=name;layer.featureKind=kind;
 layer.bindPopup(popupHtml(name,kind));
 layer.addTo(waterLayer);
 if(!polygon&&kind==='river'){
-var middle=points[Math.floor(points.length/2)];
-var nameIcon=L.divIcon({className:'satellite-water-name',html:'<span>'+escapeHtml(name)+'</span>',iconSize:[0,0],iconAnchor:[0,0]});
-L.marker(middle,{icon:nameIcon,interactive:false,keyboard:false}).addTo(satelliteNameLayer);
+var key=normalizedName(name),length=0;
+for(var i=1;i<points.length;i++){length+=map.distance(points[i-1],points[i]);}
+if(!satelliteLabelCandidates[key]||length>satelliteLabelCandidates[key].length){
+satelliteLabelCandidates[key]={name:name,point:points[Math.floor(points.length/2)],length:length};
+}
 }
 }
 function loadRiverStatuses(){
@@ -106,7 +108,14 @@ if(el.geometry){addPath(coords(el.geometry),name,waterway==='river'?'river':'str
 if(el.members){el.members.forEach(function(member){if(member.role&&member.role!=='outer'&&polygon)return;if(member.geometry)addPath(coords(member.geometry),name,waterway==='river'?'river':'stream',polygon)})}
 }
 Promise.all([fetch('https://overpass-api.de/api/interpreter',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:'data='+encodeURIComponent(query)}).then(function(response){if(!response.ok)throw new Error('Map data service unavailable');return response.json()}),loadRiverStatuses().catch(function(){return null})])
-.then(function(results){(results[0].elements||[]).forEach(processElement);status.textContent=waterLayer.getLayers().length?'Green = open, red = closed, gray = not listed or unverified (based on the latest CDFW low-flow table). Select a feature to see its name and status.':'No named water features were returned. Try again later.'})
+.then(function(results){
+(results[0].elements||[]).forEach(processElement);
+Object.keys(satelliteLabelCandidates).forEach(function(key){
+var item=satelliteLabelCandidates[key],nameIcon=L.divIcon({className:'satellite-water-name',html:'<span>'+escapeHtml(item.name)+'</span>',iconSize:[0,0],iconAnchor:[0,0]});
+L.marker(item.point,{icon:nameIcon,interactive:false,keyboard:false}).addTo(satelliteNameLayer);
+});
+status.textContent=waterLayer.getLayers().length?'Green = open, red = closed, gray = not listed or unverified (based on the latest CDFW low-flow table). Select a feature to see its name and status.':'No named water features were returned. Try again later.';
+})
 .catch(function(){status.textContent='Map water features could not load right now. The simplified base map is still available.'});
 })();
 </script></body></html>
