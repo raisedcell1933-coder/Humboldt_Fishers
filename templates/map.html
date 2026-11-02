@@ -20,7 +20,7 @@ back.addEventListener('click',close);document.addEventListener('keydown',functio
 var map=L.map('map',{zoomControl:false,scrollWheelZoom:true,minZoom:8,maxZoom:18}).setView([40.65,-123.85],9);
 var bounds=L.latLngBounds([[40.0,-124.55],[41.55,-123.35]]);
 map.setMaxBounds(bounds.pad(0.12));
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(map);
 document.getElementById('zoomIn').addEventListener('click',function(){map.zoomIn()});
 document.getElementById('zoomOut').addEventListener('click',function(){map.zoomOut()});
 var status=document.getElementById('mapStatus'),waterLayer=L.featureGroup().addTo(map);
