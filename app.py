@@ -52,6 +52,36 @@ def db_connect():
     conn.row_factory = sqlite3.Row
     return conn
 
+# Story moderation data is stored in Neon when DATABASE_URL is configured.
+# Other site features continue using the existing local SQLite database.
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+
+def story_db_connect():
+    if not DATABASE_URL:
+        return db_connect()
+    import psycopg
+    from psycopg.rows import dict_row
+    return psycopg.connect(DATABASE_URL, row_factory=dict_row)
+
+def init_story_db():
+    if not DATABASE_URL:
+        return
+    with story_db_connect() as conn:
+        conn.execute("""CREATE TABLE IF NOT EXISTS fishing_stories (
+            id BIGSERIAL PRIMARY KEY,
+            title TEXT NOT NULL,
+            author TEXT NOT NULL,
+            body TEXT NOT NULL,
+            filename TEXT,
+            original_name TEXT,
+            status_token TEXT NOT NULL UNIQUE,
+            submitted_at TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending'
+        )""")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_fishing_stories_status_id ON fishing_stories(status, id DESC)")
+
+init_story_db()
+
 def init_photo_db():
     with db_connect() as conn:
         conn.execute("""CREATE TABLE IF NOT EXISTS submissions (
@@ -1445,27 +1475,37 @@ def fishing_stories():
             (UPLOAD_DIR / filename).write_bytes(data)
             original = secure_filename(photo.filename)[:180] or "photo"
         token = secrets.token_urlsafe(32)
-        with db_connect() as conn:
-            conn.execute("INSERT INTO fishing_stories(title, author, body, filename, original_name, status_token, submitted_at, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')",
-                (title, author, body, filename, original, token, datetime.now(PACIFIC).strftime("%Y-%m-%d %I:%M %p %Z")))
+        with story_db_connect() as conn:
+            if DATABASE_URL:
+                conn.execute("INSERT INTO fishing_stories(title, author, body, filename, original_name, status_token, submitted_at, status) VALUES (%s, %s, %s, %s, %s, %s, %s, 'pending')",
+                    (title, author, body, filename, original, token, datetime.now(PACIFIC).strftime("%Y-%m-%d %I:%M %p %Z")))
+            else:
+                conn.execute("INSERT INTO fishing_stories(title, author, body, filename, original_name, status_token, submitted_at, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')",
+                    (title, author, body, filename, original, token, datetime.now(PACIFIC).strftime("%Y-%m-%d %I:%M %p %Z")))
         # The private status link is a bearer link: only someone with this unique URL can check this submission.
         return redirect(url_for("story_status", token=token))
-    with db_connect() as conn:
+    with story_db_connect() as conn:
         stories = conn.execute("SELECT * FROM fishing_stories WHERE status='published' ORDER BY id DESC").fetchall()
     return render_template("fishing_stories.html", stories=stories)
 
 @app.route("/fishing-story-status/<token>")
 def story_status(token):
-    with db_connect() as conn:
-        story = conn.execute("SELECT title, author, status, submitted_at FROM fishing_stories WHERE status_token=?", (token,)).fetchone()
+    with story_db_connect() as conn:
+        if DATABASE_URL:
+            story = conn.execute("SELECT title, author, status, submitted_at FROM fishing_stories WHERE status_token=%s", (token,)).fetchone()
+        else:
+            story = conn.execute("SELECT title, author, status, submitted_at FROM fishing_stories WHERE status_token=?", (token,)).fetchone()
     if story is None:
         abort(404)
     return render_template("story_status.html", story=story, token=token)
 
 @app.route("/fishing-story-image/<int:story_id>")
 def fishing_story_image(story_id):
-    with db_connect() as conn:
-        story = conn.execute("SELECT filename FROM fishing_stories WHERE id=? AND status='published'", (story_id,)).fetchone()
+    with story_db_connect() as conn:
+        if DATABASE_URL:
+            story = conn.execute("SELECT filename FROM fishing_stories WHERE id=%s AND status='published'", (story_id,)).fetchone()
+        else:
+            story = conn.execute("SELECT filename FROM fishing_stories WHERE id=? AND status='published'", (story_id,)).fetchone()
     if story is None or not story["filename"]:
         abort(404)
     return send_from_directory(UPLOAD_DIR, story["filename"], as_attachment=False)
@@ -1482,7 +1522,7 @@ def story_admin():
                 return redirect(url_for("story_admin"))
             flash("Incorrect password.", "error")
         return render_template("story_admin_login.html")
-    with db_connect() as conn:
+    with story_db_connect() as conn:
         stories = conn.execute("SELECT * FROM fishing_stories ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, id DESC").fetchall()
     return render_template("story_admin.html", stories=stories)
 
@@ -1490,8 +1530,11 @@ def story_admin():
 def admin_story_image(story_id):
     if not admin_required():
         abort(403)
-    with db_connect() as conn:
-        story = conn.execute("SELECT filename FROM fishing_stories WHERE id=?", (story_id,)).fetchone()
+    with story_db_connect() as conn:
+        if DATABASE_URL:
+            story = conn.execute("SELECT filename FROM fishing_stories WHERE id=%s", (story_id,)).fetchone()
+        else:
+            story = conn.execute("SELECT filename FROM fishing_stories WHERE id=?", (story_id,)).fetchone()
     if story is None or not story["filename"]:
         abort(404)
     return send_from_directory(UPLOAD_DIR, story["filename"], as_attachment=False)
@@ -1502,18 +1545,23 @@ def moderate_story(story_id, action):
         abort(403)
     if action not in {"publish", "deny", "delete"}:
         abort(404)
-    with db_connect() as conn:
-        story = conn.execute("SELECT * FROM fishing_stories WHERE id=?", (story_id,)).fetchone()
+    with story_db_connect() as conn:
+        if DATABASE_URL:
+            story = conn.execute("SELECT * FROM fishing_stories WHERE id=%s", (story_id,)).fetchone()
+            id_placeholder = "%s"
+        else:
+            story = conn.execute("SELECT * FROM fishing_stories WHERE id=?", (story_id,)).fetchone()
+            id_placeholder = "?"
         if story is None:
             abort(404)
         if action == "publish":
-            conn.execute("UPDATE fishing_stories SET status='published' WHERE id=?", (story_id,))
+            conn.execute(f"UPDATE fishing_stories SET status='published' WHERE id={id_placeholder}", (story_id,))
         elif action == "deny":
-            conn.execute("UPDATE fishing_stories SET status='denied' WHERE id=?", (story_id,))
+            conn.execute(f"UPDATE fishing_stories SET status='denied' WHERE id={id_placeholder}", (story_id,))
         else:
             if story["filename"]:
                 (UPLOAD_DIR / story["filename"]).unlink(missing_ok=True)
-            conn.execute("DELETE FROM fishing_stories WHERE id=?", (story_id,))
+            conn.execute(f"DELETE FROM fishing_stories WHERE id={id_placeholder}", (story_id,))
     flash({"publish": "Story published on Fishing Stories.", "deny": "Story denied; it remains private.", "delete": "Story deleted."}[action], "success")
     return redirect(url_for("story_admin"))
 
