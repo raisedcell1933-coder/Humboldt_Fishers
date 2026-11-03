@@ -77,7 +77,13 @@ document.getElementById('zoomIn').addEventListener('click',function(){map.zoomIn
 document.getElementById('zoomOut').addEventListener('click',function(){map.zoomOut()});
 var status=document.getElementById('mapStatus'),waterLayer=L.featureGroup(),satelliteChannelLayer=L.layerGroup(),satelliteNameLayer=L.layerGroup(),satelliteLabelCandidates={},riverStatuses={},riverSourceDate='',riverSourceUpdate='';
 var showWaterBodies=document.getElementById('showWaterBodies');
-showWaterBodies.addEventListener('change',function(){if(showWaterBodies.checked){if(!map.hasLayer(waterLayer))waterLayer.addTo(map);}else if(map.hasLayer(waterLayer)){map.removeLayer(waterLayer);}});
+var waterDataLoaded=false,waterDataLoading=false;
+showWaterBodies.addEventListener('change',function(){
+if(showWaterBodies.checked){
+if(!map.hasLayer(waterLayer))waterLayer.addTo(map);
+if(!waterDataLoaded)loadWaterData();
+}else if(map.hasLayer(waterLayer)){map.removeLayer(waterLayer);}
+});
 var waterSearchInput=document.getElementById('waterSearchInput'),waterSearchResults=document.getElementById('waterSearchResults'),searchableWaters={},selectedWaterName='';
 var popularStreams=['Jacoby Creek','Freshwater Creek','Elk River','Salmon Creek','Redwood Creek','Little River','Prairie Creek','Maple Creek','Mill Creek','Cummings Creek','Eel River','Mad River','Van Duzen River','Mattole River','Bear River','Trinity River','Klamath River'];
 var streamSet=new Set(popularStreams.map(function(n){return n.toLowerCase()}));
@@ -85,13 +91,10 @@ var popularStreams=['Jacoby Creek','Freshwater Creek','Elk River','Salmon Creek'
 var streamSet=new Set(popularStreams.map(function(n){return n.toLowerCase()}));
 var bbox='40.0,-124.55,41.55,-123.35';
 var query='[out:json][timeout:25];('+
-'way["waterway"="river"]["name"]('+bbox+');relation["waterway"="river"]["name"]('+bbox+');'+
-'way["waterway"="stream"]["name"]('+bbox+');relation["waterway"="stream"]["name"]('+bbox+');'+
-'way["waterway"~"^(canal|tidal_channel)$"]('+bbox+');'+
-'way["natural"="water"]["name"]('+bbox+');relation["natural"="water"]["name"]('+bbox+');'+
-'way["natural"="bay"]["name"]('+bbox+');relation["natural"="bay"]["name"]('+bbox+');'+
-'way["water"~"^(lake|lagoon|bay)$"]["name"]('+bbox+');relation["water"~"^(lake|lagoon|bay)$"]["name"]('+bbox+');'+
-');out geom;';
+'way["waterway"~"^(river|stream|canal|tidal_channel)$"]["name"]('+bbox+');'+
+'way["natural"~"^(water|bay)$"]["name"]('+bbox+');'+
+'way["water"~"^(lake|lagoon|bay)$"]["name"]('+bbox+');'+
+');out geom qt;';
 function escapeHtml(value){return String(value).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function coords(geometry){return (geometry||[]).filter(function(p){return Number.isFinite(p.lat)&&Number.isFinite(p.lon)}).map(function(p){return [p.lat,p.lon]})}
 function normalizedName(name){return String(name||'').toLowerCase().replace(/\\b(the|river|creek)\\b/g,'').replace(/[^a-z0-9]/g,'').trim()}
@@ -170,7 +173,10 @@ waterSearchResults.appendChild(button);
 });}
 waterSearchResults.classList.add('open');waterSearchInput.setAttribute('aria-expanded','true');
 }
-waterSearchInput.addEventListener('input',renderWaterSearch);
+waterSearchInput.addEventListener('input',function(){
+if(!waterDataLoaded){var q=waterSearchInput.value.trim();if(q){waterSearchResults.innerHTML='<div class="water-search-empty">Loading waterway names and map locations…</div>';waterSearchResults.classList.add('open');waterSearchInput.setAttribute('aria-expanded','true');loadWaterData();}else renderWaterSearch();return;}
+renderWaterSearch();
+});
 waterSearchInput.addEventListener('keydown',function(event){
 if(event.key==='Escape'){closeWaterSearch();waterSearchInput.blur();}
 if(event.key==='Enter'){var first=waterSearchResults.querySelector('button');if(first){event.preventDefault();first.click();}}
@@ -215,16 +221,25 @@ return Promise.resolve(cached);
 }
 return download(0);
 }
-Promise.all([fetchWaterFeatures(),loadRiverStatuses().catch(function(){return null})])
-.then(function(results){
-(results[0].elements||[]).forEach(processElement);
+function loadWaterData(){
+if(waterDataLoaded||waterDataLoading)return;
+waterDataLoading=true;
+status.textContent='Loading Humboldt rivers, creeks, lakes and lagoons… The first load may take a moment.';
+fetchWaterFeatures().then(function(data){
+(data.elements||[]).forEach(processElement);
+return loadRiverStatuses().catch(function(){return null;});
+}).then(function(){
 Object.keys(satelliteLabelCandidates).forEach(function(key){
 var item=satelliteLabelCandidates[key],nameIcon=L.divIcon({className:'satellite-water-name',html:'<span>'+escapeHtml(item.name)+'</span>',iconSize:[0,0],iconAnchor:[0,0]});
 L.marker(item.point,{icon:nameIcon,interactive:false,keyboard:false}).addTo(satelliteNameLayer);
 });
-status.textContent=waterLayer.getLayers().length?'Water-body data loaded. Turn on “Show bodies of water” to display features: green = open, red = closed, gray = not listed or unverified. Select a feature for details. A saved local map copy is used on repeat visits.':'Water names loaded for search; map geometry is limited for some features.';
+waterDataLoaded=true;
+status.textContent=waterLayer.getLayers().length?'Water bodies are ready. Green = CDFW low-flow open, red = closed, gray = not listed or unverified.':'No waterway geometry was returned. Try again later.';
+if(showWaterBodies.checked&&!map.hasLayer(waterLayer))waterLayer.addTo(map);
 if(waterSearchInput.value.trim())renderWaterSearch();
-})
-.catch(function(){status.textContent='Waterway search data could not load from either map-data server. Please try again shortly.'});
+}).catch(function(){
+status.textContent='Waterway data could not load. Check your connection and try turning Show bodies of water off and on again.';
+}).finally(function(){waterDataLoading=false;});
+}
 })();
 </script></body></html>
