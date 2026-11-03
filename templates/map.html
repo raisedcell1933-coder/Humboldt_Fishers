@@ -241,5 +241,7 @@ if(waterSearchInput.value.trim())renderWaterSearch();
 status.textContent='Waterway data could not load. Check your connection and try turning Show bodies of water off and on again.';
 }).finally(function(){waterDataLoading=false;});
 }
+/* Preload water features as soon as the map page opens. The feature layer stays hidden unless the user enables it. */
+loadWaterData();
 })();
 </script></body></html>
