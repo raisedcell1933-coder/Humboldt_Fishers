@@ -203,7 +203,18 @@ var polygon=natural==='water'||natural==='bay'||water==='lake'||water==='lagoon'
 if(el.geometry){addPath(coords(el.geometry),name,waterway==='river'?'river':'stream',polygon);return;}
 if(el.members){el.members.forEach(function(member){if(member.role&&member.role!=='outer'&&polygon)return;if(member.geometry)addPath(coords(member.geometry),name,waterway==='river'?'river':'stream',polygon)})}
 }
-function fetchWaterFeatures(){var endpoints=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];function attempt(index){return fetch(endpoints[index],{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:'data='+encodeURIComponent(query)}).then(function(response){if(!response.ok)throw new Error('Map data service unavailable');return response.json()}).catch(function(error){if(index+1<endpoints.length)return attempt(index+1);throw error;});}return attempt(0);}
+function fetchWaterFeatures(){
+var cacheKey='fishHumboldtWaterwaysGeoJSON_v1',cached=null;
+try{var saved=localStorage.getItem(cacheKey);if(saved){var parsed=JSON.parse(saved);if(parsed&&Array.isArray(parsed.elements)&&parsed.elements.length)cached=parsed;}}catch(error){}
+var endpoints=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+function download(index){return fetch(endpoints[index],{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:'data='+encodeURIComponent(query)}).then(function(response){if(!response.ok)throw new Error('Map data service unavailable');return response.json()}).then(function(data){if(data&&Array.isArray(data.elements)&&data.elements.length){try{localStorage.setItem(cacheKey,JSON.stringify(data));}catch(error){/* Browser storage may be full; current map can still use the downloaded data. */}}return data;}).catch(function(error){if(index+1<endpoints.length)return download(index+1);throw error;});}
+if(cached){
+/* Draw immediately from the saved local copy; refresh it quietly for the next visit. */
+download(0).catch(function(){});
+return Promise.resolve(cached);
+}
+return download(0);
+}
 Promise.all([fetchWaterFeatures(),loadRiverStatuses().catch(function(){return null})])
 .then(function(results){
 (results[0].elements||[]).forEach(processElement);
@@ -211,7 +222,7 @@ Object.keys(satelliteLabelCandidates).forEach(function(key){
 var item=satelliteLabelCandidates[key],nameIcon=L.divIcon({className:'satellite-water-name',html:'<span>'+escapeHtml(item.name)+'</span>',iconSize:[0,0],iconAnchor:[0,0]});
 L.marker(item.point,{icon:nameIcon,interactive:false,keyboard:false}).addTo(satelliteNameLayer);
 });
-status.textContent=waterLayer.getLayers().length?'Water-body data loaded. Turn on “Show bodies of water” to display features: green = open, red = closed, gray = not listed or unverified. Select a feature for details.':'Water names loaded for search; map geometry is limited for some features.';
+status.textContent=waterLayer.getLayers().length?'Water-body data loaded. Turn on “Show bodies of water” to display features: green = open, red = closed, gray = not listed or unverified. Select a feature for details. A saved local map copy is used on repeat visits.':'Water names loaded for search; map geometry is limited for some features.';
 if(waterSearchInput.value.trim())renderWaterSearch();
 })
 .catch(function(){status.textContent='Waterway search data could not load from either map-data server. Please try again shortly.'});
