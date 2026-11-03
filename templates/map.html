@@ -78,7 +78,7 @@ document.getElementById('zoomOut').addEventListener('click',function(){map.zoomO
 var status=document.getElementById('mapStatus'),waterLayer=L.featureGroup(),satelliteChannelLayer=L.layerGroup(),satelliteNameLayer=L.layerGroup(),satelliteLabelCandidates={},riverStatuses={},riverSourceDate='',riverSourceUpdate='';
 var showWaterBodies=document.getElementById('showWaterBodies');
 showWaterBodies.addEventListener('change',function(){if(showWaterBodies.checked){if(!map.hasLayer(waterLayer))waterLayer.addTo(map);}else if(map.hasLayer(waterLayer)){map.removeLayer(waterLayer);}});
-var waterSearchInput=document.getElementById('waterSearchInput'),waterSearchResults=document.getElementById('waterSearchResults'),searchableWaters={};
+var waterSearchInput=document.getElementById('waterSearchInput'),waterSearchResults=document.getElementById('waterSearchResults'),searchableWaters={},selectedWaterName='';
 var popularStreams=['Jacoby Creek','Freshwater Creek','Elk River','Salmon Creek','Redwood Creek','Little River','Prairie Creek','Maple Creek','Mill Creek','Cummings Creek','Eel River','Mad River','Van Duzen River','Mattole River','Bear River','Trinity River','Klamath River'];
 var streamSet=new Set(popularStreams.map(function(n){return n.toLowerCase()}));
 var popularStreams=['Jacoby Creek','Freshwater Creek','Elk River','Salmon Creek','Redwood Creek','Little River','Prairie Creek','Maple Creek','Mill Creek','Cummings Creek','Eel River','Mad River','Van Duzen River','Mattole River','Bear River','Trinity River','Klamath River'];
@@ -111,7 +111,7 @@ if(points.length<2)return;
 var state=statusFor(name);
 var style={color:riverColor(state),weight:kind==='river'?4:3,opacity:.95,dashArray:kind==='river'?null:'5 4'};
 var layer=polygon?L.polygon(points,{color:riverColor(state),weight:2,opacity:.98,fillColor:riverColor(state),fillOpacity:.30}):L.polyline(points,style);
-layer.featureName=name;layer.featureKind=kind;layer.featurePolygon=polygon;
+layer.featureName=name;layer.featureKind=kind;layer.featurePolygon=polygon;layer.featureSearchKey=normalizedName(name);
 var searchKey=normalizedName(name),searchType=polygon?'Lake / lagoon':(kind==='river'?'River':'Creek / stream'),featureBounds=L.latLngBounds(points);
 if(!searchableWaters[searchKey])searchableWaters[searchKey]={name:name,type:searchType,bounds:L.latLngBounds(featureBounds)};
 else{searchableWaters[searchKey].bounds.extend(featureBounds);if(searchType==='River'||searchType==='Lake / lagoon')searchableWaters[searchKey].type=searchType;}
@@ -152,6 +152,14 @@ button.appendChild(name);button.appendChild(type);
 button.addEventListener('click',function(){
 var bounds=match.item.bounds;
 if(bounds&&bounds.isValid()){showWaterBodies.checked=true;if(!map.hasLayer(waterLayer))waterLayer.addTo(map);
+selectedWaterName=match.key;
+waterLayer.eachLayer(function(layer){
+if(!layer.featureName)return;
+var state=statusFor(layer.featureName),color=riverColor(state),selected=layer.featureSearchKey===selectedWaterName;
+var style=layer.featurePolygon?{color:color,fillColor:color,weight:selected?5:2,fillOpacity:selected?.48:.30,opacity:1}:{color:color,weight:selected?8:(layer.featureKind==='river'?4:3),opacity:selected?1:.90,dashArray:layer.featureKind==='river'?null:'5 4'};
+layer.setStyle(style);
+if(selected&&layer.bringToFront)layer.bringToFront();
+});
 map.fitBounds(bounds.pad(.22),{maxZoom:14,animate:true});
 if(mapShell)mapShell.scrollIntoView({behavior:'smooth',block:'center'});
 mapStatus.textContent='Showing '+match.item.name+' on the map. Select the highlighted feature for more information.';
