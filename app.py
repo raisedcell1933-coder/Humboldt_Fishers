@@ -28,6 +28,48 @@ google = oauth.register(
 def inject_google_account():
     return {"current_google_user": session.get("google_user")}
 
+@app.after_request
+def preload_humboldt_water_data(response):
+    """Warm the browser's shared water-feature cache on every non-map page."""
+    if request.path == "/map" or "text/html" not in response.headers.get("Content-Type", ""):
+        return response
+    preload_script = r"""
+<script>
+(function(){
+  var key='fishHumboldtWaterwaysGeoJSON_v1';
+  try {
+    var cached=localStorage.getItem(key);
+    if(cached){var parsed=JSON.parse(cached);if(parsed&&Array.isArray(parsed.elements)&&parsed.elements.length)return;}
+  } catch(e) {}
+  if(window.__hfWaterPreloadStarted)return;
+  window.__hfWaterPreloadStarted=true;
+  var bbox='40.0,-124.55,-123.35,41.55';
+  /* Overpass uses south,west,north,east; keep the same bounds as the map. */
+  bbox='40.0,-124.55,41.55,-123.35';
+  var query='[out:json][timeout:25];('+
+    'way["waterway"~"^(river|stream|canal|tidal_channel)$"]["name"]('+bbox+');'+
+    'way["natural"~"^(water|bay)$"]["name"]('+bbox+');'+
+    'way["water"~"^(lake|lagoon|bay)$"]["name"]('+bbox+');'+
+    ');out geom qt;';
+  var hosts=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+  function get(i){
+    return fetch(hosts[i],{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:'data='+encodeURIComponent(query)})
+      .then(function(r){if(!r.ok)throw new Error('Water data unavailable');return r.json();})
+      .then(function(data){if(data&&Array.isArray(data.elements)&&data.elements.length){try{localStorage.setItem(key,JSON.stringify(data));}catch(e){}}return data;})
+      .catch(function(err){if(i+1<hosts.length)return get(i+1);throw err;});
+  }
+  get(0).catch(function(){});
+})();
+</script>
+"""
+    try:
+        html=response.get_data(as_text=True)
+        if "</body>" in html:
+            response.set_data(html.replace("</body>",preload_script+"</body>",1))
+    except Exception:
+        pass
+    return response
+
 ADMIN_USERNAME = os.environ.get("HUMBOLDT_FISHERS_ADMIN_USER", "admin")
 # For public hosting, set HUMBOLDT_FISHERS_ADMIN_PASSWORD to a strong secret in host settings.
 ADMIN_PASSWORD = os.environ.get("HUMBOLDT_FISHERS_ADMIN_PASSWORD", "")
