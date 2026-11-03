@@ -74,10 +74,14 @@ def init_story_db():
             body TEXT NOT NULL,
             filename TEXT,
             original_name TEXT,
+            image_url TEXT,
+            cloudinary_public_id TEXT,
             status_token TEXT NOT NULL UNIQUE,
             submitted_at TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'pending'
         )""")
+        conn.execute("ALTER TABLE fishing_stories ADD COLUMN IF NOT EXISTS image_url TEXT")
+        conn.execute("ALTER TABLE fishing_stories ADD COLUMN IF NOT EXISTS cloudinary_public_id TEXT")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_fishing_stories_status_id ON fishing_stories(status, id DESC)")
 
 init_story_db()
@@ -101,10 +105,17 @@ def init_photo_db():
             body TEXT NOT NULL,
             filename TEXT,
             original_name TEXT,
+            image_url TEXT,
+            cloudinary_public_id TEXT,
             status_token TEXT NOT NULL UNIQUE,
             submitted_at TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'pending'
         )""")
+        story_columns = {row[1] for row in conn.execute("PRAGMA table_info(fishing_stories)").fetchall()}
+        if "image_url" not in story_columns:
+            conn.execute("ALTER TABLE fishing_stories ADD COLUMN image_url TEXT")
+        if "cloudinary_public_id" not in story_columns:
+            conn.execute("ALTER TABLE fishing_stories ADD COLUMN cloudinary_public_id TEXT")
         conn.execute("""CREATE TABLE IF NOT EXISTS page_views (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             viewed_at REAL NOT NULL,
@@ -159,6 +170,35 @@ def admin_required():
 
 def allowed_image(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def cloudinary_enabled():
+    return bool(os.environ.get("CLOUDINARY_URL", "").strip())
+
+def upload_story_image(data):
+    """Upload a validated story image to Cloudinary and return its durable URL and ID."""
+    import cloudinary
+    import cloudinary.uploader
+    cloudinary.config(cloudinary_url=os.environ["CLOUDINARY_URL"].strip())
+    result = cloudinary.uploader.upload(
+        data,
+        folder="fish-humboldt/stories",
+        resource_type="image",
+        unique_filename=True,
+        overwrite=False,
+    )
+    return result["secure_url"], result["public_id"]
+
+def delete_cloudinary_image(public_id):
+    if not public_id or not cloudinary_enabled():
+        return
+    try:
+        import cloudinary
+        import cloudinary.uploader
+        cloudinary.config(cloudinary_url=os.environ["CLOUDINARY_URL"].strip())
+        cloudinary.uploader.destroy(public_id, resource_type="image")
+    except Exception:
+        # Story deletion should still complete if the image provider is temporarily unavailable.
+        app.logger.exception("Could not delete Cloudinary story image %s", public_id)
 
 NOAA_API = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
 STATION = "9418767"  # North Spit, Humboldt Bay, CA
@@ -1461,6 +1501,8 @@ def fishing_stories():
             return redirect(url_for("fishing_stories") + "#share-story")
         filename = None
         original = None
+        image_url = None
+        cloudinary_public_id = None
         if photo and photo.filename:
             if not allowed_image(photo.filename):
                 flash("Please upload a JPG, PNG, WEBP, or GIF photo.", "error")
@@ -1470,18 +1512,26 @@ def fishing_stories():
             if len(data) > MAX_IMAGE_BYTES or not any(signatures):
                 flash("The photo must be a valid JPG, PNG, WEBP, or GIF image under 8 MB.", "error")
                 return redirect(url_for("fishing_stories") + "#share-story")
-            ext = secure_filename(photo.filename).rsplit(".", 1)[1].lower()
-            filename = f"story_{secrets.token_hex(18)}.{ext}"
-            (UPLOAD_DIR / filename).write_bytes(data)
             original = secure_filename(photo.filename)[:180] or "photo"
+            if cloudinary_enabled():
+                try:
+                    image_url, cloudinary_public_id = upload_story_image(data)
+                except Exception:
+                    app.logger.exception("Cloudinary story photo upload failed")
+                    flash("We couldn't save your photo right now. Please try again in a moment.", "error")
+                    return redirect(url_for("fishing_stories") + "#share-story")
+            else:
+                ext = secure_filename(photo.filename).rsplit(".", 1)[1].lower()
+                filename = f"story_{secrets.token_hex(18)}.{ext}"
+                (UPLOAD_DIR / filename).write_bytes(data)
         token = secrets.token_urlsafe(32)
         with story_db_connect() as conn:
             if DATABASE_URL:
-                conn.execute("INSERT INTO fishing_stories(title, author, body, filename, original_name, status_token, submitted_at, status) VALUES (%s, %s, %s, %s, %s, %s, %s, 'pending')",
-                    (title, author, body, filename, original, token, datetime.now(PACIFIC).strftime("%Y-%m-%d %I:%M %p %Z")))
+                conn.execute("INSERT INTO fishing_stories(title, author, body, filename, original_name, image_url, cloudinary_public_id, status_token, submitted_at, status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending')",
+                    (title, author, body, filename, original, image_url, cloudinary_public_id, token, datetime.now(PACIFIC).strftime("%Y-%m-%d %I:%M %p %Z")))
             else:
-                conn.execute("INSERT INTO fishing_stories(title, author, body, filename, original_name, status_token, submitted_at, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')",
-                    (title, author, body, filename, original, token, datetime.now(PACIFIC).strftime("%Y-%m-%d %I:%M %p %Z")))
+                conn.execute("INSERT INTO fishing_stories(title, author, body, filename, original_name, image_url, cloudinary_public_id, status_token, submitted_at, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')",
+                    (title, author, body, filename, original, image_url, cloudinary_public_id, token, datetime.now(PACIFIC).strftime("%Y-%m-%d %I:%M %p %Z")))
         # The private status link is a bearer link: only someone with this unique URL can check this submission.
         return redirect(url_for("story_status", token=token))
     with story_db_connect() as conn:
@@ -1503,11 +1553,13 @@ def story_status(token):
 def fishing_story_image(story_id):
     with story_db_connect() as conn:
         if DATABASE_URL:
-            story = conn.execute("SELECT filename FROM fishing_stories WHERE id=%s AND status='published'", (story_id,)).fetchone()
+            story = conn.execute("SELECT filename, image_url FROM fishing_stories WHERE id=%s AND status='published'", (story_id,)).fetchone()
         else:
-            story = conn.execute("SELECT filename FROM fishing_stories WHERE id=? AND status='published'", (story_id,)).fetchone()
-    if story is None or not story["filename"]:
+            story = conn.execute("SELECT filename, image_url FROM fishing_stories WHERE id=? AND status='published'", (story_id,)).fetchone()
+    if story is None or not (story["image_url"] or story["filename"]):
         abort(404)
+    if story["image_url"]:
+        return redirect(story["image_url"])
     return send_from_directory(UPLOAD_DIR, story["filename"], as_attachment=False)
 
 @app.route("/admin", methods=["GET", "POST"])
@@ -1532,11 +1584,13 @@ def admin_story_image(story_id):
         abort(403)
     with story_db_connect() as conn:
         if DATABASE_URL:
-            story = conn.execute("SELECT filename FROM fishing_stories WHERE id=%s", (story_id,)).fetchone()
+            story = conn.execute("SELECT filename, image_url FROM fishing_stories WHERE id=%s", (story_id,)).fetchone()
         else:
-            story = conn.execute("SELECT filename FROM fishing_stories WHERE id=?", (story_id,)).fetchone()
-    if story is None or not story["filename"]:
+            story = conn.execute("SELECT filename, image_url FROM fishing_stories WHERE id=?", (story_id,)).fetchone()
+    if story is None or not (story["image_url"] or story["filename"]):
         abort(404)
+    if story["image_url"]:
+        return redirect(story["image_url"])
     return send_from_directory(UPLOAD_DIR, story["filename"], as_attachment=False)
 
 @app.route("/admin/story/<int:story_id>/<action>", methods=["POST"])
@@ -1561,6 +1615,8 @@ def moderate_story(story_id, action):
         else:
             if story["filename"]:
                 (UPLOAD_DIR / story["filename"]).unlink(missing_ok=True)
+            if story["cloudinary_public_id"]:
+                delete_cloudinary_image(story["cloudinary_public_id"])
             conn.execute(f"DELETE FROM fishing_stories WHERE id={id_placeholder}", (story_id,))
     flash({"publish": "Story published on Fishing Stories.", "deny": "Story denied; it remains private.", "delete": "Story deleted."}[action], "success")
     return redirect(url_for("story_admin"))
