@@ -193,15 +193,17 @@ var polygon=natural==='water'||natural==='bay'||water==='lake'||water==='lagoon'
 if(el.geometry){addPath(coords(el.geometry),name,waterway==='river'?'river':'stream',polygon);return;}
 if(el.members){el.members.forEach(function(member){if(member.role&&member.role!=='outer'&&polygon)return;if(member.geometry)addPath(coords(member.geometry),name,waterway==='river'?'river':'stream',polygon)})}
 }
-Promise.all([fetch('https://overpass-api.de/api/interpreter',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:'data='+encodeURIComponent(query)}).then(function(response){if(!response.ok)throw new Error('Map data service unavailable');return response.json()}),loadRiverStatuses().catch(function(){return null})])
+function fetchWaterFeatures(){var endpoints=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];function attempt(index){return fetch(endpoints[index],{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:'data='+encodeURIComponent(query)}).then(function(response){if(!response.ok)throw new Error('Map data service unavailable');return response.json()}).catch(function(error){if(index+1<endpoints.length)return attempt(index+1);throw error;});}return attempt(0);}
+Promise.all([fetchWaterFeatures(),loadRiverStatuses().catch(function(){return null})])
 .then(function(results){
 (results[0].elements||[]).forEach(processElement);
 Object.keys(satelliteLabelCandidates).forEach(function(key){
 var item=satelliteLabelCandidates[key],nameIcon=L.divIcon({className:'satellite-water-name',html:'<span>'+escapeHtml(item.name)+'</span>',iconSize:[0,0],iconAnchor:[0,0]});
 L.marker(item.point,{icon:nameIcon,interactive:false,keyboard:false}).addTo(satelliteNameLayer);
 });
-status.textContent=waterLayer.getLayers().length?'Green = open, red = closed, gray = not listed or unverified (based on the latest CDFW low-flow table). Select a feature to see its name and status.':'No named water features were returned. Try again later.';
+status.textContent=waterLayer.getLayers().length?'Green = open, red = closed, gray = not listed or unverified (based on the latest CDFW low-flow table). Select a feature to see its name and status.':'Water names loaded for search; map geometry is limited for some features.';
+if(waterSearchInput.value.trim())renderWaterSearch();
 })
-.catch(function(){status.textContent='Map water features could not load right now. The simplified base map is still available.'});
+.catch(function(){status.textContent='Waterway search data could not load from either map-data server. Please try again shortly.'});
 })();
 </script></body></html>
