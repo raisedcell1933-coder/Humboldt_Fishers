@@ -88,6 +88,7 @@ var query='[out:json][timeout:25];('+
 'way["waterway"~"^(canal|tidal_channel)$"]('+bbox+');'+
 'way["natural"="water"]["name"]('+bbox+');relation["natural"="water"]["name"]('+bbox+');'+
 'way["natural"="bay"]["name"]('+bbox+');relation["natural"="bay"]["name"]('+bbox+');'+
+'way["water"~"^(lake|lagoon|bay)$"]["name"]('+bbox+');relation["water"~"^(lake|lagoon|bay)$"]["name"]('+bbox+');'+
 ');out geom;';
 function escapeHtml(value){return String(value).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function coords(geometry){return (geometry||[]).filter(function(p){return Number.isFinite(p.lat)&&Number.isFinite(p.lon)}).map(function(p){return [p.lat,p.lon]})}
