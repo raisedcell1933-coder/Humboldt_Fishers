@@ -1533,7 +1533,7 @@ def fishing_stories():
                 conn.execute("INSERT INTO fishing_stories(title, author, body, filename, original_name, image_url, cloudinary_public_id, status_token, submitted_at, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')",
                     (title, author, body, filename, original, image_url, cloudinary_public_id, token, datetime.now(PACIFIC).strftime("%Y-%m-%d %I:%M %p %Z")))
         # The private status link is a bearer link: only someone with this unique URL can check this submission.
-        return redirect(url_for("story_status", token=token))
+        return redirect(url_for("story_status", token=token) + "?submitted=1")
     with story_db_connect() as conn:
         stories = conn.execute("SELECT * FROM fishing_stories WHERE status='published' ORDER BY id DESC").fetchall()
     return render_template("fishing_stories.html", stories=stories)
