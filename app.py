@@ -1355,7 +1355,10 @@ def admin_analytics():
             count = conn.execute("SELECT COUNT(DISTINCT visitor_id) FROM page_views WHERE viewed_at >= ? AND visitor_id IS NOT NULL", (now - seconds,)).fetchone()[0]
             stats.append({"label": label, "count": count})
         recent = conn.execute("SELECT path, COUNT(*) AS views FROM page_views WHERE viewed_at >= ? GROUP BY path ORDER BY views DESC LIMIT 8", (now - 4 * 24 * 60 * 60,)).fetchall()
-    return render_template("admin_analytics.html", stats=stats, recent=recent)
+        # Count unique verified Google email addresses that have successfully signed in.
+        conn.execute("CREATE TABLE IF NOT EXISTS google_users (google_sub TEXT PRIMARY KEY, email TEXT NOT NULL, name TEXT NOT NULL, last_login TEXT NOT NULL)")
+        signed_in_emails = conn.execute("SELECT COUNT(DISTINCT lower(trim(email))) FROM google_users WHERE email IS NOT NULL AND trim(email) != ''").fetchone()[0]
+    return render_template("admin_analytics.html", stats=stats, recent=recent, signed_in_emails=signed_in_emails)
 
 @app.route("/admin/photos")
 def admin_dashboard():
