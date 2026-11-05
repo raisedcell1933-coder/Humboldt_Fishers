@@ -207,6 +207,35 @@ def set_device_recognition_cookie(response):
                             httponly=True, samesite="Lax", secure=request.is_secure, path="/")
     return response
 
+
+@app.after_request
+def add_google_analytics_tag(response):
+    """Install the GA4 tag on public HTML pages without editing every template."""
+    if (request.path.startswith(("/admin", "/api/", "/static/", "/community-photo-file/", "/admin-private-photo/", "/fishing-story-image/"))):
+        return response
+    if "text/html" not in response.headers.get("Content-Type", ""):
+        return response
+    try:
+        html = response.get_data(as_text=True)
+        if "G-NLH0KTL5DV" not in html and "<head>" in html.lower():
+            tag = """
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-NLH0KTL5DV"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-NLH0KTL5DV');
+</script>
+"""
+            html = re.sub(r"<head\\b[^>]*>", lambda match: match.group(0) + tag, html, count=1, flags=re.IGNORECASE)
+            response.set_data(html)
+    except Exception:
+        # Analytics must never prevent a page from loading.
+        pass
+    return response
+
+
 def admin_required():
     return bool(session.get("is_admin"))
 
