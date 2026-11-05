@@ -228,7 +228,7 @@ def add_google_analytics_tag(response):
   gtag('config', 'G-NLH0KTL5DV');
 </script>
 """
-            html = re.sub(r"<head\\b[^>]*>", lambda match: match.group(0) + tag, html, count=1, flags=re.IGNORECASE)
+            html = re.sub(r"<head\b[^>]*>", lambda match: match.group(0) + tag, html, count=1, flags=re.IGNORECASE)
             response.set_data(html)
     except Exception:
         # Analytics must never prevent a page from loading.
