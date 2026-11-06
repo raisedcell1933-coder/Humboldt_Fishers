@@ -1312,21 +1312,85 @@ def best_days_page():
 def wind_page():
     return render_template("wind.html")
 
+def _wind_number(value):
+    """Convert an NWS wind-speed range such as '5 to 10 mph' to its midpoint."""
+    if value is None:
+        return None
+    nums = re.findall(r"-?\\d+(?:\\.\\d+)?", str(value))
+    if not nums:
+        return None
+    vals = [float(x) for x in nums[:2]]
+    return sum(vals) / len(vals)
+
+def _wind_direction_degrees(value):
+    """Convert NWS compass direction text into degrees for the wind page."""
+    if value is None:
+        return None
+    compass = {"N":0,"NNE":22.5,"NE":45,"ENE":67.5,"E":90,"ESE":112.5,
+               "SE":135,"SSE":157.5,"S":180,"SSW":202.5,"SW":225,
+               "WSW":247.5,"W":270,"WNW":292.5,"NW":315,"NNW":337.5}
+    return compass.get(str(value).strip().upper())
+
+def _fetch_nws_wind_fallback(now):
+    """Use the National Weather Service as a backup if Open-Meteo is unavailable."""
+    headers = {
+        "User-Agent": "HumboldtFishers/1.0 (public fishing weather page)",
+        "Accept": "application/geo+json, application/ld+json",
+    }
+    point_response = requests.get(
+        "https://api.weather.gov/points/40.75,-124.20",
+        headers=headers, timeout=12
+    )
+    point_response.raise_for_status()
+    point_data = point_response.json().get("properties", {})
+    hourly_url = point_data.get("forecastHourly")
+    if not hourly_url:
+        raise RuntimeError("NWS did not provide an hourly forecast URL for Humboldt Bay.")
+    forecast_response = requests.get(hourly_url, headers=headers, timeout=15)
+    forecast_response.raise_for_status()
+    periods = forecast_response.json().get("properties", {}).get("periods", [])
+    if not periods:
+        raise RuntimeError("NWS returned no hourly wind forecast periods.")
+    times, speeds, gusts, directions = [], [], [], []
+    for period in periods:
+        times.append(str(period.get("startTime", ""))[:16])
+        speeds.append(_wind_number(period.get("windSpeed")))
+        gusts.append(_wind_number(period.get("windGust")))
+        directions.append(_wind_direction_degrees(period.get("windDirection")))
+    first = periods[0]
+    return {
+        "current": {
+            "time": first.get("startTime"),
+            "speed": speeds[0],
+            "gusts": gusts[0],
+            "direction": directions[0],
+        },
+        "times": times,
+        "speed": speeds,
+        "gusts": gusts,
+        "direction": directions,
+        "updated": now.isoformat(),
+        "status": "backup",
+        "source": "National Weather Service hourly forecast (7-day backup)",
+        "notice": "Open-Meteo is temporarily unavailable. Showing the NWS backup forecast for the next 7 days.",
+    }
+
 @app.route("/api/wind")
 def wind_api():
     now = datetime.now(PACIFIC)
     with lock:
         if wind_cache["data"] and wind_cache["fetched"] and (now - wind_cache["fetched"]).total_seconds() < CACHE_SECONDS:
             return jsonify(wind_cache["data"])
+        errors = []
         try:
-            # Open-Meteo provides an hourly forecast for Humboldt Bay coordinates.
+            # Primary provider: Open-Meteo, with a full 16-day hourly forecast.
             response = requests.get("https://api.open-meteo.com/v1/forecast", params={
                 "latitude": 40.75, "longitude": -124.20,
                 "current": "wind_speed_10m,wind_gusts_10m,wind_direction_10m",
                 "hourly": "wind_speed_10m,wind_gusts_10m,wind_direction_10m",
                 "wind_speed_unit": "mph", "timezone": "America/Los_Angeles",
                 "forecast_days": 16
-            }, timeout=25)
+            }, timeout=18)
             response.raise_for_status()
             payload = response.json()
             hourly = payload.get("hourly", {})
@@ -1336,14 +1400,36 @@ def wind_api():
                     "times": hourly.get("time", []), "speed": hourly.get("wind_speed_10m", []),
                     "gusts": hourly.get("wind_gusts_10m", []), "direction": hourly.get("wind_direction_10m", []),
                     "updated": now.isoformat(), "status": "live", "source": "Open-Meteo hourly forecast for Humboldt Bay"}
-            if not data["times"]: raise RuntimeError("No hourly wind forecast was returned.")
+            if not data["times"]:
+                raise RuntimeError("Open-Meteo returned an empty hourly wind forecast.")
             wind_cache.update(fetched=now, data=data)
             return jsonify(data)
         except Exception as exc:
-            if wind_cache["data"]:
-                old = dict(wind_cache["data"]); old["status"] = "stale"; old["error"] = str(exc)
-                return jsonify(old)
-            return jsonify({"status":"unavailable", "error":str(exc), "times":[], "speed":[], "gusts":[], "direction":[]}), 502
+            errors.append("Open-Meteo: " + str(exc))
+            app.logger.warning("Primary wind provider failed: %s", exc)
+
+        try:
+            # Backup provider: official NWS hourly forecast. It currently covers 7 days.
+            data = _fetch_nws_wind_fallback(now)
+            wind_cache.update(fetched=now, data=data)
+            return jsonify(data)
+        except Exception as exc:
+            errors.append("NWS backup: " + str(exc))
+            app.logger.exception("Both wind forecast providers failed")
+
+        # Never discard a previously successful forecast because both providers failed.
+        if wind_cache["data"]:
+            old = dict(wind_cache["data"])
+            old["status"] = "stale"
+            old["error"] = " | ".join(errors)
+            old["notice"] = "Both weather providers failed. Showing the last successful forecast."
+            return jsonify(old)
+        return jsonify({
+            "status": "unavailable",
+            "error": " | ".join(errors),
+            "times": [], "speed": [], "gusts": [], "direction": [],
+            "source": "No weather provider responded",
+        }), 502
 
 @app.route("/api/tides")
 def tides_api():
