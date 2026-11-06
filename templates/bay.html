@@ -35,11 +35,44 @@
 <h2 class="section-title">Crabs</h2><div class="grid">
 <article class="fish" data-species="dungeness-crab"><img src="/static/dungeness-crab.png" alt="Dungeness crab"><div class="fishbody"><span class="tag">Crab</span><h2>Dungeness Crab</h2><p><strong>Can you crab for it right now?</strong> The current CDFW season/closure status is checked below.</p><div class="status check" data-status>Checking current CDFW status…</div><p class="small">Season, public-health advisories, legal gear, and local closures all apply. Do not assume a season is open because traps or crab are visible.</p></div></article>
 <article class="fish" data-species="red-rock-crab"><img src="/static/red-rock-crab.png" alt="Red rock crab"><div class="fishbody"><span class="tag">Crab</span><h2>Red Rock Crab</h2><p><strong>Can you crab for it right now?</strong> The automatic check does not confirm a specific Humboldt Bay red rock crab status.</p><div class="status check" data-status>Requires manual CDFW verification</div><p class="small">Confirm current minimum size, bag limit, gear restrictions, and any local closure before keeping.</p></div></article>
+<article class="fish" data-species="cdfw-crab-photo">
+  <a id="cdfwCrabPhotoLink" href="https://wildlife.ca.gov/News/Archive/recreational-dungeness-crab-fishing-begins-in-most-areas-nov-7-with-trap-restrictions-commercial-season-delayed" target="_blank" rel="noopener" style="display:block;color:inherit;text-decoration:none">
+    <img id="cdfwCrabPhoto" src="https://wildlife.ca.gov/Portals/0/Images/OCEO/News/2025-2026%20Recreational%20DungenessCrabSeasonMap.jpg?ver=ZRX0tbTDEYoWTHF0FcAvlA%3D%3D" alt="Latest CDFW Dungeness crab season map">
+    <div class="fishbody">
+      <span class="tag">CDFW · Official update</span>
+      <h2>Latest Dungeness Crab Map</h2>
+      <p>Current season map and recreational crab restrictions published by the California Department of Fish and Wildlife.</p>
+      <p class="small" id="cdfwCrabPhotoChecked">Checking CDFW article for the latest image…</p>
+      <p class="small"><strong>Click the image to open the original CDFW announcement.</strong></p>
+    </div>
+  </a>
+</article>
 </div>
 <div class="notice"><strong>How updates work:</strong> the server checks the official CDFW San Francisco Bay District regulations page linked above whenever its cached result is older than 24 hours. Green means the source lists an open ocean season category, red means the source lists a closure or a no-take rule, and yellow means the exact species, location, or rule is not confirmed. The app cannot guarantee that it interprets every emergency notice or every Humboldt Bay-specific rule.</div>
 </main><footer class="footer">Fish Humboldt · North Coast species and regulations guide</footer>
 <script>
 (async function(){const checked=document.getElementById('checkedAt'),message=document.getElementById('checkMessage');try{const response=await fetch('/api/bay-regulations-status',{cache:'no-store'});const data=await response.json();checked.textContent=data.checked_at?'Last checked: '+data.checked_at:(data.status==='ok'?'CDFW pages checked':'Check time unavailable');message.textContent=data.message||'Open the official CDFW links to verify current rules.';if(data.status!=='ok'){message.style.color='#805200';}document.querySelectorAll('[data-species]').forEach(card=>{const status=card.querySelector('[data-status]');if(!status)return;const result=(data.species||{})[card.dataset.species];if(result){status.textContent=(result.label||'').replace(/^(RED|GREEN|YELLOW)\s*[—–-]\s*/i,'')+' — '+result.detail;status.className='status '+(result.state==='closed'?'closed':result.state==='open'?'open':'check');status.title='Source: '+result.source;}else{status.textContent='No matching rule was confirmed for this exact species/location. Open the official CDFW source before fishing.';status.className='status check';}})}catch(e){checked.textContent='Could not contact the regulation checker';message.textContent='No current legality determination available. Open the official CDFW links before fishing.';document.querySelectorAll('[data-status]').forEach(s=>{if(!/DO NOT/i.test(s.textContent)){s.textContent='Unverified. Check official CDFW rules';s.className='status check'}})}})();
+</script>
+<script>
+(async function(){
+  const image=document.getElementById('cdfwCrabPhoto');
+  const link=document.getElementById('cdfwCrabPhotoLink');
+  const checked=document.getElementById('cdfwCrabPhotoChecked');
+  if(!image||!link||!checked)return;
+  try{
+    const response=await fetch('/api/bay-crab-photo',{cache:'no-store'});
+    const data=await response.json();
+    if(data.image_url){
+      const separator=data.image_url.includes('?')?'&':'?';
+      image.src=data.image_url+separator+'hf_updated='+encodeURIComponent(data.checked_at||'');
+      link.href=data.article_url||link.href;
+    }
+    checked.textContent=data.checked_at?'CDFW image last checked: '+data.checked_at:(data.message||'Latest available CDFW image');
+    if(data.message)checked.title=data.message;
+  }catch(error){
+    checked.textContent='Could not refresh image details; showing the last available CDFW image.';
+  }
+})();
 </script>
 <style>
 .hf-account-control{position:fixed;top:8px;right:62px;z-index:10004;display:flex;align-items:center;gap:7px}
