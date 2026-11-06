@@ -1316,7 +1316,7 @@ def _wind_number(value):
     """Convert an NWS wind-speed range such as '5 to 10 mph' to its midpoint."""
     if value is None:
         return None
-    nums = re.findall(r"-?\\d+(?:\\.\\d+)?", str(value))
+    nums = re.findall(r"-?\d+(?:\.\d+)?", str(value))
     if not nums:
         return None
     vals = [float(x) for x in nums[:2]]
