@@ -1729,11 +1729,11 @@ def bay_crab_photo_api():
                         page_html = response.read().decode("utf-8", "ignore")
 
                     candidates = []
-                    for tag in re.findall(r"<img\\b[^>]*>", page_html, flags=re.I):
-                        src_match = re.search(r"""\\b(?:src|data-src)=["']([^"']+)["']""", tag, flags=re.I)
+                    for tag in re.findall(r"<img\b[^>]*>", page_html, flags=re.I):
+                        src_match = re.search(r"""\b(?:src|data-src)=["']([^"']+)["']""", tag, flags=re.I)
                         if not src_match:
                             continue
-                        alt_match = re.search(r"""\\balt=["']([^"']*)["']""", tag, flags=re.I)
+                        alt_match = re.search(r"""\balt=["']([^"']*)["']""", tag, flags=re.I)
                         src = html_lib.unescape(src_match.group(1).strip())
                         alt = html_lib.unescape(alt_match.group(1).strip()).lower() if alt_match else ""
                         if not src or src.startswith("data:"):
@@ -1750,7 +1750,7 @@ def bay_crab_photo_api():
 
                     if not candidates:
                         og_match = re.search(
-                            r"""<meta\\b[^>]*(?:property|name)=["'](?:og:image|twitter:image)["'][^>]*content=["']([^"']+)["']""",
+                            r"""<meta\b[^>]*(?:property|name)=["'](?:og:image|twitter:image)["'][^>]*content=["']([^"']+)["']""",
                             page_html, flags=re.I
                         )
                         if og_match:
