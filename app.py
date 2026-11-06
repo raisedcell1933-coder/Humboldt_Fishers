@@ -1695,6 +1695,88 @@ def moderate_story(story_id, action):
     flash({"publish": "Story published on Fishing Stories.", "deny": "Story denied; it remains private.", "delete": "Story deleted."}[action], "success")
     return redirect(url_for("story_admin"))
 
+# Latest CDFW Dungeness crab article image, refreshed on a 48-hour cache.
+_BAY_CRAB_ARTICLE_URL = "https://wildlife.ca.gov/News/Archive/recreational-dungeness-crab-fishing-begins-in-most-areas-nov-7-with-trap-restrictions-commercial-season-delayed"
+_BAY_CRAB_PHOTO_TTL_SECONDS = 48 * 60 * 60
+_BAY_CRAB_PHOTO_LOCK = Lock()
+_BAY_CRAB_PHOTO_CACHE = {
+    "image_url": "https://wildlife.ca.gov/Portals/0/Images/OCEO/News/2025-2026%20Recreational%20DungenessCrabSeasonMap.jpg?ver=ZRX0tbTDEYoWTHF0FcAvlA%3D%3D",
+    "checked_at": None,
+    "checked_ts": 0.0,
+    "message": "Showing the latest known CDFW article image."
+}
+
+@app.route("/api/bay-crab-photo")
+def bay_crab_photo_api():
+    """Find the current lead image on the official CDFW article; refresh no more than every 48 hours."""
+    import time
+    import html as html_lib
+    from urllib.parse import urljoin
+
+    now_ts = time.time()
+    if now_ts - _BAY_CRAB_PHOTO_CACHE["checked_ts"] >= _BAY_CRAB_PHOTO_TTL_SECONDS:
+        with _BAY_CRAB_PHOTO_LOCK:
+            now_ts = time.time()
+            if now_ts - _BAY_CRAB_PHOTO_CACHE["checked_ts"] >= _BAY_CRAB_PHOTO_TTL_SECONDS:
+                try:
+                    req = urllib.request.Request(
+                        _BAY_CRAB_ARTICLE_URL,
+                        headers={"User-Agent": "HumboldtFishers/1.0 (CDFW article image refresh; every 48 hours)"},
+                    )
+                    with urllib.request.urlopen(req, timeout=20) as response:
+                        if response.status != 200:
+                            raise RuntimeError("CDFW article returned HTTP " + str(response.status))
+                        page_html = response.read().decode("utf-8", "ignore")
+
+                    candidates = []
+                    for tag in re.findall(r"<img\\b[^>]*>", page_html, flags=re.I):
+                        src_match = re.search(r"""\\b(?:src|data-src)=["']([^"']+)["']""", tag, flags=re.I)
+                        if not src_match:
+                            continue
+                        alt_match = re.search(r"""\\balt=["']([^"']*)["']""", tag, flags=re.I)
+                        src = html_lib.unescape(src_match.group(1).strip())
+                        alt = html_lib.unescape(alt_match.group(1).strip()).lower() if alt_match else ""
+                        if not src or src.startswith("data:"):
+                            continue
+                        score = 0
+                        if "dungeness" in alt:
+                            score += 5
+                        if "crab" in alt:
+                            score += 4
+                        if "map" in alt or "restriction" in alt:
+                            score += 3
+                        if score:
+                            candidates.append((score, urljoin(_BAY_CRAB_ARTICLE_URL, src)))
+
+                    if not candidates:
+                        og_match = re.search(
+                            r"""<meta\\b[^>]*(?:property|name)=["'](?:og:image|twitter:image)["'][^>]*content=["']([^"']+)["']""",
+                            page_html, flags=re.I
+                        )
+                        if og_match:
+                            candidates.append((1, urljoin(_BAY_CRAB_ARTICLE_URL, html_lib.unescape(og_match.group(1)))))
+
+                    if not candidates:
+                        raise RuntimeError("No Dungeness crab article image was found on the CDFW page.")
+
+                    candidates.sort(key=lambda item: item[0], reverse=True)
+                    _BAY_CRAB_PHOTO_CACHE["image_url"] = candidates[0][1]
+                    _BAY_CRAB_PHOTO_CACHE["message"] = "Image successfully checked against the official CDFW article."
+                except Exception as exc:
+                    # Keep the last working image if CDFW is temporarily unavailable.
+                    _BAY_CRAB_PHOTO_CACHE["message"] = "CDFW refresh failed; keeping the last available image."
+                finally:
+                    _BAY_CRAB_PHOTO_CACHE["checked_ts"] = time.time()
+                    _BAY_CRAB_PHOTO_CACHE["checked_at"] = datetime.now(PACIFIC).strftime("%b %d, %Y %I:%M %p %Z")
+
+    return jsonify({
+        "image_url": _BAY_CRAB_PHOTO_CACHE["image_url"],
+        "article_url": _BAY_CRAB_ARTICLE_URL,
+        "checked_at": _BAY_CRAB_PHOTO_CACHE["checked_at"],
+        "message": _BAY_CRAB_PHOTO_CACHE["message"],
+        "refresh_interval_hours": 48,
+    })
+
 # Keep Flask's development server startup after every route has been registered.
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5000, debug=False)
