@@ -304,7 +304,11 @@ def fetch_nws_hourly(lat, lon):
     import time
     payload = None
     last_error = None
-    for forecast_days in (16, 14, 10, 8):
+    # From the current weekday, this many calendar days are needed to
+    # include every day through the end of next Sunday.
+    required_days = 14 - datetime.now(PACIFIC).weekday()
+    forecast_horizons = list(dict.fromkeys((16, 14, required_days)))
+    for forecast_days in forecast_horizons:
         params["forecast_days"] = forecast_days
         for attempt in range(2):
             try:
