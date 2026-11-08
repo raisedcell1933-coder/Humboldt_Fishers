@@ -298,9 +298,40 @@ def fetch_nws_hourly(lat, lon):
         "temperature_unit": "fahrenheit", "wind_speed_unit": "mph",
         "timezone": "America/Los_Angeles", "forecast_days": 16,
     }
-    response = requests.get("https://api.open-meteo.com/v1/forecast", params=params, timeout=25)
-    response.raise_for_status()
-    payload = response.json()
+    # Open-Meteo can temporarily throttle or reject the longest forecast request.
+    # Retry it, then fall back to a shorter supported horizon that still covers
+    # the complete next Monday-Sunday week when the 16-day response is unavailable.
+    import time
+    payload = None
+    last_error = None
+    for forecast_days in (16, 14, 10, 8):
+        params["forecast_days"] = forecast_days
+        for attempt in range(2):
+            try:
+                response = requests.get(
+                    "https://api.open-meteo.com/v1/forecast",
+                    params=params,
+                    timeout=35,
+                    headers={"User-Agent": "HumboldtFishers/1.0 weather forecast"},
+                )
+                response.raise_for_status()
+                candidate = response.json()
+                candidate_times = candidate.get("hourly", {}).get("time", [])
+                if len(candidate_times) < 24 * 8:
+                    raise RuntimeError(
+                        f"Open-Meteo returned only {len(candidate_times)} hourly periods; "
+                        "at least eight days are needed to fill the next Monday-Sunday week."
+                    )
+                payload = candidate
+                break
+            except Exception as exc:
+                last_error = exc
+                if attempt == 0:
+                    time.sleep(1)
+        if payload is not None:
+            break
+    if payload is None:
+        raise RuntimeError(f"Open-Meteo forecast request failed after retries: {last_error}")
     hourly = payload.get("hourly", {})
     times = hourly.get("time", [])
     codes = hourly.get("weather_code", [])
