@@ -5,7 +5,6 @@ import requests
 import re
 import urllib.request
 from threading import Lock
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -299,33 +298,40 @@ def fetch_nws_hourly(lat, lon):
         "temperature_unit": "fahrenheit", "wind_speed_unit": "mph",
         "timezone": "America/Los_Angeles", "forecast_days": 16,
     }
-    # Keep each town request short so the hosting request does not time out.
-    # Try the full horizon once, then a horizon long enough to cover next Sunday.
+    # Open-Meteo can temporarily throttle or reject the longest forecast request.
+    # Retry it, then fall back to a shorter supported horizon that still covers
+    # the complete next Monday-Sunday week when the 16-day response is unavailable.
+    import time
     payload = None
     last_error = None
-    required_days = 14 - datetime.now(PACIFIC).weekday()
-    for forecast_days in (16, required_days):
+    for forecast_days in (16, 14, 10, 8):
         params["forecast_days"] = forecast_days
-        try:
-            response = requests.get(
-                "https://api.open-meteo.com/v1/forecast",
-                params=params,
-                timeout=12,
-                headers={"User-Agent": "HumboldtFishers/1.0"},
-            )
-            response.raise_for_status()
-            candidate = response.json()
-            candidate_times = candidate.get("hourly", {}).get("time", [])
-            if len(candidate_times) < 24 * 8:
-                raise RuntimeError(
-                    f"Open-Meteo returned only {len(candidate_times)} hourly periods."
+        for attempt in range(2):
+            try:
+                response = requests.get(
+                    "https://api.open-meteo.com/v1/forecast",
+                    params=params,
+                    timeout=35,
+                    headers={"User-Agent": "HumboldtFishers/1.0 weather forecast"},
                 )
-            payload = candidate
+                response.raise_for_status()
+                candidate = response.json()
+                candidate_times = candidate.get("hourly", {}).get("time", [])
+                if len(candidate_times) < 24 * 8:
+                    raise RuntimeError(
+                        f"Open-Meteo returned only {len(candidate_times)} hourly periods; "
+                        "at least eight days are needed to fill the next Monday-Sunday week."
+                    )
+                payload = candidate
+                break
+            except Exception as exc:
+                last_error = exc
+                if attempt == 0:
+                    time.sleep(1)
+        if payload is not None:
             break
-        except Exception as exc:
-            last_error = exc
     if payload is None:
-        raise RuntimeError(f"Open-Meteo forecast request failed: {last_error}")
+        raise RuntimeError(f"Open-Meteo forecast request failed after retries: {last_error}")
     hourly = payload.get("hourly", {})
     times = hourly.get("time", [])
     codes = hourly.get("weather_code", [])
@@ -432,21 +438,12 @@ def get_weather(force=False):
             return weather_cache["data"]
         saved = _read_weather_history()
         towns, errors = {}, {}
-        # Fetch the six town forecasts concurrently. Sequential long provider
-        # timeouts caused the web host to return an HTML gateway error instead
-        # of the JSON weather response.
-        with ThreadPoolExecutor(max_workers=len(WEATHER_TOWNS)) as pool:
-            futures = {
-                pool.submit(fetch_nws_hourly, lat, lon): name
-                for name, (lat, lon) in WEATHER_TOWNS.items()
-            }
-            for future in as_completed(futures):
-                name = futures[future]
-                try:
-                    towns[name] = future.result()
-                except Exception as exc:
-                    errors[name] = str(exc)
-                    towns[name] = []
+        for name, (lat, lon) in WEATHER_TOWNS.items():
+            try:
+                towns[name] = fetch_nws_hourly(lat, lon)
+            except Exception as exc:
+                errors[name] = str(exc)
+                towns[name] = []
         merged_towns = _merge_weekly_weather(saved, towns, now)
         if not any(merged_towns.values()):
             raise RuntimeError("The National Weather Service did not return any hourly forecasts. Please try again shortly.")
