@@ -128,6 +128,44 @@ def init_story_db():
 
 init_story_db()
 
+def init_google_users_db():
+    """Create the durable sign-in register and migrate any older SQLite records."""
+    if not DATABASE_URL:
+        with db_connect() as conn:
+            conn.execute("CREATE TABLE IF NOT EXISTS google_users (google_sub TEXT PRIMARY KEY, email TEXT NOT NULL, name TEXT NOT NULL, last_login TEXT NOT NULL)")
+        return
+    with story_db_connect() as conn:
+        conn.execute("""CREATE TABLE IF NOT EXISTS google_users (
+            google_sub TEXT PRIMARY KEY,
+            email TEXT NOT NULL,
+            name TEXT NOT NULL,
+            last_login TEXT NOT NULL
+        )""")
+    # Migrate old records from the previous local SQLite register when available.
+    try:
+        with db_connect() as local_conn:
+            exists = local_conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='google_users'"
+            ).fetchone()
+            if exists:
+                old_users = local_conn.execute(
+                    "SELECT google_sub,email,name,last_login FROM google_users"
+                ).fetchall()
+            else:
+                old_users = []
+        if old_users:
+            with story_db_connect() as conn:
+                for old_user in old_users:
+                    conn.execute(
+                        "INSERT INTO google_users(google_sub,email,name,last_login) VALUES(%s,%s,%s,%s) "
+                        "ON CONFLICT(google_sub) DO UPDATE SET email=EXCLUDED.email,name=EXCLUDED.name,last_login=EXCLUDED.last_login",
+                        (old_user["google_sub"], old_user["email"], old_user["name"], old_user["last_login"]),
+                    )
+    except Exception:
+        app.logger.exception("Could not migrate previous local Google sign-in records.")
+
+init_google_users_db()
+
 def init_photo_db():
     with db_connect() as conn:
         conn.execute("""CREATE TABLE IF NOT EXISTS submissions (
