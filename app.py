@@ -1019,10 +1019,9 @@ def rivers_page():
 
 @app.route("/api/rivers")
 def rivers_api():
-    """Read the latest dated status row from CDFW's North Coast Low-Flow table."""
+    """Read CDFW's dated North Coast low-flow table and summarize weekly transitions."""
     source_url = "https://wildlife.ca.gov/Fishing/Inland/Low-Flow/North-Coast"
     now = datetime.now(PACIFIC).isoformat()
-    # These are the actual columns in the CDFW table (not guessed nearby rivers).
     river_columns = ["Eel River", "South Fork Eel River", "Middle Fork Eel River",
                      "Van Duzen River", "Mad River", "Mattole River", "Redwood Creek",
                      "Smith River", "Mendocino Coast Streams"]
@@ -1044,64 +1043,87 @@ def rivers_api():
                 chosen = (headers, rows)
                 break
         if not chosen:
-            raise RuntimeError("CDFW page loaded, but its dated open/closed status table was not found. No status was guessed.")
+            raise RuntimeError("CDFW page loaded, but its dated open/closed status table was not found.")
         headers, rows = chosen
         indexes = {" ".join(h.lower().split()): i for i, h in enumerate(headers)}
-        # Pick the newest row that contains a date and at least one explicit status.
-        data_rows = []
+        date_idx = indexes.get("date", 0)
+        update_idx = next((i for i,h in enumerate(headers) if "date and time of update" in " ".join(h.lower().split())), None)
+        dated_rows = []
         for row in rows[1:]:
             cells = [" ".join(c.stripped_strings).strip() for c in row.find_all(["th", "td"])]
             if len(cells) < len(headers):
                 continue
-            date_text = cells[indexes.get("date", 0)]
-            if not date_text:
-                continue
-            data_rows.append((date_text, cells))
-        if not data_rows:
-            raise RuntimeError("CDFW status table was found, but no dated status rows were available.")
-        # Use the row for today's Pacific date, not a future-effective row
-        # that may already appear at the top of CDFW's table.
-        today = datetime.now(PACIFIC).date()
-        dated_rows = []
-        for date_text, cells in data_rows:
+            date_text = cells[date_idx]
             try:
                 row_date = datetime.strptime(date_text, "%m/%d/%Y").date()
-            except ValueError:
+            except (ValueError, TypeError):
                 continue
             dated_rows.append((row_date, date_text, cells))
         if not dated_rows:
-            raise RuntimeError("CDFW status table dates could not be interpreted.")
-        eligible_rows = [item for item in dated_rows if item[0] <= today]
-        if eligible_rows:
-            _, latest_date, latest = max(eligible_rows, key=lambda item: item[0])
-        else:
-            _, latest_date, latest = min(dated_rows, key=lambda item: item[0])
+            raise RuntimeError("CDFW status table was found, but no dated status rows were available.")
+        dated_rows.sort(key=lambda item: item[0])
+        today = datetime.now(PACIFIC).date()
+        week_end = today + timedelta(days=(6 - today.weekday()))
+        eligible = [item for item in dated_rows if item[0] <= today]
+        if not eligible:
+            raise RuntimeError("CDFW table has no status row effective today or earlier.")
+        current_row = max(eligible, key=lambda item: item[0])
+        _, latest_date, latest = current_row
+        rows_by_date = {item[0]: item for item in dated_rows}
         results = []
         for river in river_columns:
             idx = next((i for i,h in enumerate(headers) if " ".join(h.lower().split()) == river.lower()), None)
-            value = latest[idx].strip() if idx is not None and idx < len(latest) else ""
-            normalized = value.casefold()
-            if normalized == "open":
-                status, label = "open", "Open"
-                detail = "CDFW's latest low-flow table marks this water OPEN. Check the exact reach and all other fishing regulations before fishing."
-            elif normalized == "closed":
-                status, label = "closed", "Closed"
-                detail = "CDFW's latest low-flow table marks this water CLOSED. Check the exact reach and update date before fishing."
+            if idx is None:
+                value = ""
             else:
+                value = latest[idx].strip() if idx < len(latest) else ""
+            current = value.casefold()
+            if current not in ("open", "closed"):
                 status, label = "unconfirmed", "Status unavailable"
-                detail = "No explicit Open/Closed value was read for this column. Verify the official table directly."
-            results.append({"name":river, "status":status, "label":label, "detail":detail,
-                            "source":source_url, "source_value":value or "Not listed"})
-        update_idx = next((i for i,h in enumerate(headers) if "date and time of update" in " ".join(h.lower().split())), None)
+                schedule = "Weekly outlook unavailable"
+                detail = "CDFW did not provide a clear Open/Closed value for this river. Verify the official table directly."
+            else:
+                status = current
+                label = "Open" if status == "open" else "Closed"
+                transition = None
+                for row_date, date_text, cells in dated_rows:
+                    if row_date <= today or row_date > week_end or idx is None or idx >= len(cells):
+                        continue
+                    future_status = cells[idx].strip().casefold()
+                    if future_status in ("open", "closed") and future_status != status:
+                        transition = (row_date, future_status)
+                        break
+                if transition:
+                    change_date, new_status = transition
+                    verb = "Opens" if new_status == "open" else "Closes"
+                    schedule = f"{verb} on {change_date.strftime('%A, %B %-d')}"
+                else:
+                    sunday_row = rows_by_date.get(week_end)
+                    if sunday_row:
+                        sunday_value = sunday_row[2][idx].strip().casefold() if idx < len(sunday_row[2]) else ""
+                        if sunday_value == status:
+                            schedule = f"{label} all week"
+                        else:
+                            schedule = f"{label} — no change date confirmed"
+                    else:
+                        last_future = max((item[0] for item in dated_rows if today < item[0] <= week_end), default=None)
+                        if last_future:
+                            schedule = f"{label} — no change listed through {last_future.strftime('%b %-d')}"
+                        else:
+                            schedule = f"{label} — no upcoming change listed"
+                detail = ("CDFW's dated low-flow table currently lists this river as OPEN. " if status == "open" else "CDFW's dated low-flow table currently lists this river as CLOSED. ") + "The weekly outlook is based on the dated status rows currently published by CDFW; check the exact reach and all other fishing regulations before fishing."
+            results.append({"name":river, "status":status, "label":label, "schedule":schedule,
+                            "detail":detail, "source":source_url, "source_value":value or "Not listed"})
         update_time = latest[update_idx] if update_idx is not None and update_idx < len(latest) else "Not shown"
         return jsonify({"status":"live", "updated":now, "source":source_url,
                         "source_date":latest_date, "source_update":update_time,
-                        "note":f"Read from CDFW's newest table row dated {latest_date}. Status is low-flow information only; other rules and specific reaches may differ.",
+                        "note":f"Current status is from CDFW's row dated {latest_date}; weekly change dates are read from later dated rows through Sunday. Status is low-flow information only; specific reaches and other regulations may differ.",
                         "rivers":results})
     except Exception as exc:
         return jsonify({"status":"unavailable", "updated":now, "error":str(exc),
-                        "source":source_url, "note":"Could not reliably read the current official status table. No Open/Closed statuses are guessed.",
+                        "source":source_url, "note":"Could not reliably read the current official status table. No Open/Closed statuses or change dates are guessed.",
                         "rivers":[{"name":r, "status":"unconfirmed", "label":"Unable to verify",
+                        "schedule":"Weekly outlook unavailable",
                         "detail":"The latest official status could not be read automatically. Please check CDFW directly.", "source":source_url}
                         for r in river_columns]}), 502
 
