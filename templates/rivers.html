@@ -70,7 +70,7 @@ a{color:#238fca}
 <div id="message" class="muted" role="status">Loading official source…</div><section class="grid" id="rivers" aria-live="polite"></section>
 <section class="flow-section" aria-labelledby="flow-title">
 <h2 id="flow-title">Weekly River Height & Flow</h2>
-<p class="flow-intro">Monday–Sunday charts using NOAA/NWS gauge observations and forecasts where available. Height is shown in feet; flow is shown in cubic feet per second (CFS).</p>
+<p class="flow-intro">Monday–Sunday charts using NOAA/NWS gauge observations and forecasts where available. Solid lines are observed readings; dashed lines are forecasts. The dated table shows N/A for forecast/future times and for missing sensor values until a valid observed reading is published. Height is shown in feet; flow is shown in cubic feet per second (CFS).</p>
 <div class="notice">Charts check for new NOAA data every 15 minutes and switch to the next Monday–Sunday week at 2:00 AM Pacific on Sunday. NOAA may not publish a forecast for every gauge or every hour; missing values are left blank. A gauge represents one location, not every fishing access point along the river.</div>
 <div class="actions"><button class="btn" id="flow-refresh" onclick="loadFlow(true)">Refresh river charts</button><span id="flow-meta">Loading NOAA river data…</span></div>
 <div class="flow-warning">These charts are informational, not a safety guarantee. Check official flood alerts and local conditions before entering or crossing a river.</div>
@@ -107,7 +107,7 @@ function findRecords(section){
     if(/stream.?flow|discharge|\bflow\b|\bcfs\b|\bqr\b/.test(t))return 'flow';
     return null;
   };
-  const numeric=(v)=>{if(typeof v==='number'&&Number.isFinite(v))return v;if(typeof v==='string'&&v.trim()!==''&&Number.isFinite(Number(v)))return Number(v);return null;};
+  const numeric=(v)=>{const n=typeof v==='number'?v:(typeof v==='string'&&v.trim()!==''?Number(v):NaN);return Number.isFinite(n)&&n!==-999?n:null;};
   function walk(v,path){
     if(!v||typeof v!=='object')return;
     if(Array.isArray(v)){v.forEach((item,i)=>walk(item,path+' '+i));return;}
@@ -167,7 +167,7 @@ function normalizedGauge(g){
       if(timeValue){
         const dt=new Date(typeof timeValue==='string'?timeValue:(timeValue.value||timeValue.validTime||timeValue.datetime||''));
         if(!Number.isNaN(dt.getTime())){
-          const val=(x)=>{const n=Number(x);return x!==null&&x!==undefined&&String(x).trim()!==''&&Number.isFinite(n)?n:null;};
+          const val=(x)=>{const n=Number(x);return x!==null&&x!==undefined&&String(x).trim()!==''&&Number.isFinite(n)&&n!==-999?n:null;};
           let stage=val(v.stage??v.height??v.gageHeight??v.gage_height);
           let flow=val(v.flow??v.discharge??v.streamflow??v.cfs);
           // NWPS stageflow uses primary/secondary values and units to distinguish metrics.
@@ -190,13 +190,13 @@ function normalizedGauge(g){
 }
 function inWeek(rec,start,end){return rec.time>=start&&rec.time<end;}
 function chartDatasets(records,key,label,style){const make=(arr,name,dash)=>({label:name,data:arr.map(r=>({x:r.time,y:r[key]})).filter(p=>p.y!==null),borderColor:style,backgroundColor:style,borderWidth:2,pointRadius:0,tension:.18,spanGaps:false,borderDash:dash||[]});return records;}
-function renderGauge(g,index,start,end){const series=normalizedGauge(g);const obs=series.obs.filter(r=>inWeek(r,start,end));const fcst=series.fcst.filter(r=>inWeek(r,start,end));const id='flow-'+index;const latest=[...obs].reverse().find(r=>r.stage!==null||r.flow!==null);let status=g.ok?'NOAA data loaded; forecast coverage depends on gauge':'NOAA data unavailable for this gauge right now';
+function renderGauge(g,index,start,end){const series=normalizedGauge(g);const now=new Date();const obs=series.obs.filter(r=>inWeek(r,start,end)&&r.time<=now);const fcst=series.fcst.filter(r=>inWeek(r,start,end));const id='flow-'+index;const latest=[...obs].reverse().find(r=>r.stage!==null||r.flow!==null);let status=g.ok?'NOAA data loaded; forecast coverage depends on gauge':'NOAA data unavailable for this gauge right now';
 const link=`<a href="${escFlow(g.url)}" target="_blank" rel="noopener">Open official gauge ↗</a>`;
 const isAggregate=!g.station;
 const charts=isAggregate?'<p class="flow-state">'+escFlow(g.error)+'</p>':(!g.ok?'<p class="flow-state">NOAA data could not be retrieved for this gauge. Use the official gauge link below.</p>':'<div class="chart-title">Water height (feet)</div><div class="chart-wrap"><canvas id="'+id+'-stage" aria-label="Weekly water height chart"></canvas></div><div class="chart-title">Water flow (CFS)</div><div class="chart-wrap"><canvas id="'+id+'-flow" aria-label="Weekly water flow chart"></canvas></div>');
-const latestText=latest?`Latest observed reading in returned data: ${latest.stage===null?'height unavailable':latest.stage.toFixed(2)+' ft'} · ${latest.flow===null?'flow unavailable':latest.flow.toFixed(0)+' CFS'} (${latest.time.toLocaleString()})`:status;
+const latestText=latest?`Latest observed reading in returned data: ${latest.stage===null?'height unavailable':latest.stage.toFixed(2)+' ft'} · ${latest.flow===null?'flow unavailable':latest.flow.toFixed(2)+' CFS'} (${latest.time.toLocaleString()})`:status;
 const rows=[...obs.map(r=>({...r,kind:'Observed'})),...fcst.map(r=>({...r,kind:'Forecast'}))].sort((a,b)=>a.time-b.time);
-const table=`<details><summary>View dated hourly data (${rows.length} points)</summary><div class="flow-table-wrap"><table class="flow-table"><thead><tr><th>Date/time</th><th>Type</th><th>Height (ft)</th><th>Flow (CFS)</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${escFlow(r.time.toLocaleString())}</td><td>${r.kind}</td><td>${r.stage===null?'—':r.stage.toFixed(2)}</td><td>${r.flow===null?'—':r.flow.toFixed(0)}</td></tr>`).join('')}</tbody></table></div></details>`;
+const table=`<details><summary>View dated hourly data (${rows.length} points)</summary><div class="flow-table-wrap"><table class="flow-table"><thead><tr><th>Date/time</th><th>Type</th><th>Height (ft)</th><th>Flow (CFS)</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${escFlow(r.time.toLocaleString())}</td><td>${r.kind}</td><td>${r.kind!=='Observed'||r.time>new Date()||r.stage===null?'N/A':r.stage.toFixed(2)}</td><td>${r.kind!=='Observed'||r.time>new Date()||r.flow===null?'N/A':r.flow.toFixed(2)}</td></tr>`).join('')}</tbody></table></div></details>`;
 flowGrid.insertAdjacentHTML('beforeend',`<article class="flow-card"><h3>${escFlow(g.name)}</h3><div class="station">${escFlow(g.location||'Gauge location unavailable')} · ${escFlow(g.station||'No single gauge')}${g.representative?' · Representative gauge only':''}</div><div class="flow-state">${escFlow(latestText)}</div>${charts}${link}${isAggregate?'':table}</article>`);
 if(isAggregate||!g.ok)return;
 const times=Array.from({length:168},(_,i)=>new Date(start.getTime()+i*3600000));
