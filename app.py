@@ -1096,7 +1096,7 @@ def rivers_api():
                 if transition:
                     change_date, new_status = transition
                     verb = "Opens" if new_status == "open" else "Closes"
-                    schedule = f"{verb} on {change_date.strftime('%A, %B %-d')}"
+                    schedule = f"{verb} on {(change_date.strftime('%A, %B ') + str(change_date.day))}"
                 else:
                     sunday_row = rows_by_date.get(week_end)
                     if sunday_row:
@@ -1108,7 +1108,7 @@ def rivers_api():
                     else:
                         last_future = max((item[0] for item in dated_rows if today < item[0] <= week_end), default=None)
                         if last_future:
-                            schedule = f"{label} — no change listed through {last_future.strftime('%b %-d')}"
+                            schedule = f"{label} — no change listed through {(last_future.strftime('%b ') + str(last_future.day))}"
                         else:
                             schedule = f"{label} — no upcoming change listed"
                 detail = ("CDFW's dated low-flow table currently lists this river as OPEN. " if status == "open" else "CDFW's dated low-flow table currently lists this river as CLOSED. ") + "The weekly outlook is based on the dated status rows currently published by CDFW; check the exact reach and all other fishing regulations before fishing."
