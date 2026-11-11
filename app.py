@@ -1535,18 +1535,25 @@ def admin_logout():
 def admin_analytics():
     if not admin_required():
         return redirect(url_for("admin_login"))
-    now = datetime.now().timestamp()
-    windows = [("30 minutes", 30 * 60), ("24 hours", 24 * 60 * 60), ("4 days", 4 * 24 * 60 * 60)]
-    stats = []
-    with db_connect() as conn:
-        for label, seconds in windows:
-            count = conn.execute("SELECT COUNT(DISTINCT visitor_id) FROM page_views WHERE viewed_at >= ? AND visitor_id IS NOT NULL", (now - seconds,)).fetchone()[0]
-            stats.append({"label": label, "count": count})
-        recent = conn.execute("SELECT path, COUNT(*) AS views FROM page_views WHERE viewed_at >= ? GROUP BY path ORDER BY views DESC LIMIT 8", (now - 4 * 24 * 60 * 60,)).fetchall()
-        # Count unique verified Google email addresses that have successfully signed in.
-        conn.execute("CREATE TABLE IF NOT EXISTS google_users (google_sub TEXT PRIMARY KEY, email TEXT NOT NULL, name TEXT NOT NULL, last_login TEXT NOT NULL)")
-        signed_in_emails = conn.execute("SELECT COUNT(DISTINCT lower(trim(email))) FROM google_users WHERE email IS NOT NULL AND trim(email) != ''").fetchone()[0]
-    return render_template("admin_analytics.html", stats=stats, recent=recent, signed_in_emails=signed_in_emails)
+    # The account register lives in the same persistent database used for stories
+    # whenever DATABASE_URL (Neon) is configured, so server restarts do not reset it.
+    with story_db_connect() as conn:
+        if DATABASE_URL:
+            conn.execute("""CREATE TABLE IF NOT EXISTS google_users (
+                google_sub TEXT PRIMARY KEY,
+                email TEXT NOT NULL,
+                name TEXT NOT NULL,
+                last_login TEXT NOT NULL
+            )""")
+            signed_in_emails = conn.execute(
+                "SELECT COUNT(DISTINCT lower(trim(email))) AS total FROM google_users WHERE email IS NOT NULL AND trim(email) != ''"
+            ).fetchone()["total"]
+        else:
+            conn.execute("CREATE TABLE IF NOT EXISTS google_users (google_sub TEXT PRIMARY KEY, email TEXT NOT NULL, name TEXT NOT NULL, last_login TEXT NOT NULL)")
+            signed_in_emails = conn.execute(
+                "SELECT COUNT(DISTINCT lower(trim(email))) FROM google_users WHERE email IS NOT NULL AND trim(email) != ''"
+            ).fetchone()[0]
+    return render_template("admin_analytics.html", signed_in_emails=signed_in_emails, persistent_analytics=bool(DATABASE_URL))
 
 @app.route("/admin/photos")
 def admin_dashboard():
@@ -1654,13 +1661,26 @@ def login_google_callback():
     session["google_user"] = account
     session.permanent = True
 
-    with db_connect() as conn:
-        conn.execute("CREATE TABLE IF NOT EXISTS google_users (google_sub TEXT PRIMARY KEY, email TEXT NOT NULL, name TEXT NOT NULL, last_login TEXT NOT NULL)")
-        conn.execute(
-            "INSERT INTO google_users(google_sub,email,name,last_login) VALUES(?,?,?,?) "
-            "ON CONFLICT(google_sub) DO UPDATE SET email=excluded.email,name=excluded.name,last_login=excluded.last_login",
-            (account["sub"], account["email"], account["name"], datetime.now(PACIFIC).isoformat()),
-        )
+    with story_db_connect() as conn:
+        if DATABASE_URL:
+            conn.execute("""CREATE TABLE IF NOT EXISTS google_users (
+                google_sub TEXT PRIMARY KEY,
+                email TEXT NOT NULL,
+                name TEXT NOT NULL,
+                last_login TEXT NOT NULL
+            )""")
+            conn.execute(
+                "INSERT INTO google_users(google_sub,email,name,last_login) VALUES(%s,%s,%s,%s) "
+                "ON CONFLICT(google_sub) DO UPDATE SET email=EXCLUDED.email,name=EXCLUDED.name,last_login=EXCLUDED.last_login",
+                (account["sub"], account["email"], account["name"], datetime.now(PACIFIC).isoformat()),
+            )
+        else:
+            conn.execute("CREATE TABLE IF NOT EXISTS google_users (google_sub TEXT PRIMARY KEY, email TEXT NOT NULL, name TEXT NOT NULL, last_login TEXT NOT NULL)")
+            conn.execute(
+                "INSERT INTO google_users(google_sub,email,name,last_login) VALUES(?,?,?,?) "
+                "ON CONFLICT(google_sub) DO UPDATE SET email=excluded.email,name=excluded.name,last_login=excluded.last_login",
+                (account["sub"], account["email"], account["name"], datetime.now(PACIFIC).isoformat()),
+            )
 
     flash("You're signed in with Google.", "success")
     next_url = session.pop("google_login_next", url_for("fishing_stories") + "#share-story")
