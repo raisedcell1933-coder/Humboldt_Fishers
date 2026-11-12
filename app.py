@@ -401,7 +401,11 @@ def fetch_nws_hourly(lat, lon):
         })
     return periods
 
-WEATHER_HISTORY_PATH = BASE_DIR / "weather_weekly_cache.json"
+# Keep the weather history on the same durable storage used by the site's other
+# persistent data. If Neon/Postgres is configured, it is the primary store; the
+# mounted data directory is also maintained as a local backup.
+WEATHER_HISTORY_PATH = DATA_DIR / "weather_weekly_cache.json"
+LEGACY_WEATHER_HISTORY_PATH = BASE_DIR / "weather_weekly_cache.json"
 
 def _week_bounds(now):
     """Current Monday 00:00 through next Monday 00:00 in Pacific time."""
@@ -409,24 +413,81 @@ def _week_bounds(now):
     return start, start + timedelta(days=7)
 
 def _read_weather_history():
-    try:
-        with WEATHER_HISTORY_PATH.open("r", encoding="utf-8") as handle:
-            saved = json.load(handle)
-        return saved if isinstance(saved, dict) else {}
-    except (OSError, ValueError, TypeError):
-        return {}
+    if DATABASE_URL:
+        try:
+            import psycopg
+            with psycopg.connect(DATABASE_URL) as conn:
+                conn.execute("""CREATE TABLE IF NOT EXISTS weather_forecast_cache (
+                    cache_key TEXT PRIMARY KEY,
+                    payload JSONB NOT NULL,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )""")
+                row = conn.execute(
+                    "SELECT payload FROM weather_forecast_cache WHERE cache_key = %s",
+                    ("hourly",)
+                ).fetchone()
+                if row and isinstance(row[0], dict):
+                    return row[0]
+                if row and isinstance(row[0], str):
+                    parsed = json.loads(row[0])
+                    return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            app.logger.exception("Could not read durable weather history from Postgres; trying disk backup")
+    # Migrate the previous app-directory cache to the persistent data directory.
+    for path in (WEATHER_HISTORY_PATH, LEGACY_WEATHER_HISTORY_PATH):
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                saved = json.load(handle)
+            if isinstance(saved, dict):
+                if path == LEGACY_WEATHER_HISTORY_PATH and path != WEATHER_HISTORY_PATH:
+                    try:
+                        _write_weather_history(saved)
+                    except Exception:
+                        app.logger.exception("Could not migrate legacy weather history to durable storage")
+                return saved
+        except (OSError, ValueError, TypeError):
+            continue
+    return {}
 
 def _write_weather_history(data):
-    temp_path = WEATHER_HISTORY_PATH.with_suffix(".tmp")
-    with temp_path.open("w", encoding="utf-8") as handle:
-        json.dump(data, handle, ensure_ascii=False)
-    temp_path.replace(WEATHER_HISTORY_PATH)
+    """Persist the latest valid weekly snapshot to Postgres and the data-disk backup."""
+    errors = []
+    if DATABASE_URL:
+        try:
+            import psycopg
+            with psycopg.connect(DATABASE_URL) as conn:
+                conn.execute("""CREATE TABLE IF NOT EXISTS weather_forecast_cache (
+                    cache_key TEXT PRIMARY KEY,
+                    payload JSONB NOT NULL,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )""")
+                conn.execute("""INSERT INTO weather_forecast_cache (cache_key, payload, updated_at)
+                    VALUES (%s, %s::jsonb, NOW())
+                    ON CONFLICT (cache_key) DO UPDATE
+                    SET payload = EXCLUDED.payload, updated_at = NOW()""",
+                    ("hourly", json.dumps(data, ensure_ascii=False)))
+        except Exception as exc:
+            errors.append(exc)
+            app.logger.exception("Could not save weather history to Postgres; writing disk backup")
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        temp_path = WEATHER_HISTORY_PATH.with_suffix(".tmp")
+        with temp_path.open("w", encoding="utf-8") as handle:
+            json.dump(data, handle, ensure_ascii=False)
+            handle.flush()
+            os.fsync(handle.fileno())
+        temp_path.replace(WEATHER_HISTORY_PATH)
+    except Exception as exc:
+        errors.append(exc)
+        app.logger.exception("Could not save weather history to the persistent data directory")
+    if errors and len(errors) == (2 if DATABASE_URL else 1):
+        raise RuntimeError("Weather forecast could not be saved to durable storage: " + "; ".join(str(e) for e in errors))
 
 def _merge_weekly_weather(old_data, new_towns, now):
-    """Keep already-seen periods across this week and next week, including past hours.
+    """Keep the active Monday-Sunday week and the next week only.
 
-    Fresh forecast values replace future/current periods. Old periods remain visible
-    until the two-week display window rolls forward on Monday midnight.
+    On Monday rollover, periods from the completed week are pruned. New forecast
+    values replace future/current periods while already-recorded past periods remain.
     """
     week_start, week_end = _week_bounds(now)
     week_end += timedelta(days=7)
@@ -485,7 +546,9 @@ def get_weather(force=False):
         merged_towns = _merge_weekly_weather(saved, towns, now)
         if not any(merged_towns.values()):
             raise RuntimeError("The National Weather Service did not return any hourly forecasts. Please try again shortly.")
+        week_start, _ = _week_bounds(now)
         data = {"towns": merged_towns, "errors": errors, "updated": now.isoformat(),
+                "week_start": week_start.date().isoformat(),
                 "source": "Open-Meteo hourly forecast (16-day model forecast)",
                 "status": "partial" if errors else "live"}
         _write_weather_history(data)
@@ -1375,12 +1438,32 @@ def fishing_reports_page():
 def weather_page():
     return render_template("weather.html")
 
+def _weather_cache_is_for_current_week(data):
+    if not isinstance(data, dict):
+        return False
+    now = datetime.now(PACIFIC)
+    week_start, week_end = _week_bounds(now)
+    for periods in (data.get("towns") or {}).values():
+        for period in periods or []:
+            try:
+                dt = datetime.fromisoformat(str(period.get("startTime", "")).replace("Z", "+00:00"))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=PACIFIC)
+                else:
+                    dt = dt.astimezone(PACIFIC)
+                if week_start <= dt < week_end:
+                    return True
+            except (ValueError, TypeError):
+                continue
+    return False
+
 @app.route("/api/weather")
 def weather_api():
     try:
         return jsonify(get_weather())
     except Exception as exc:
-        if weather_cache["data"]:
+        # Never show a previous week's in-memory snapshot after the weekly rollover.
+        if _weather_cache_is_for_current_week(weather_cache.get("data")):
             old = dict(weather_cache["data"])
             old["status"] = "stale"
             old["error"] = str(exc)
