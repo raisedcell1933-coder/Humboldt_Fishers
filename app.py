@@ -1403,16 +1403,16 @@ def _cnrfc_fetch_native_page(station_id, force=False):
         raise ValueError("NOAA did not return its short-range peak exceedance product.")
     metadata = _cnrfc_parse_product_page(body)
     import html as _html
-    plain = _html.unescape(re.sub(r"<script\\b[^>]*>.*?</script>|<style\\b[^>]*>.*?</style>", " ", body, flags=re.I|re.S))
+    plain = _html.unescape(re.sub(r"<script\b[^>]*>.*?</script>|<style\b[^>]*>.*?</style>", " ", body, flags=re.I|re.S))
     plain = re.sub(r"<[^>]+>", " ", plain)
-    plain = re.sub(r"\\s+", " ", plain).strip()
+    plain = re.sub(r"\s+", " ", plain).strip()
     def _capture(pattern):
         match = re.search(pattern, plain, re.I)
         return match.group(1).strip() if match else None
-    metadata["station_title"] = _capture(r"((?:SMITH|EEL|SOUTH FORK|VAN DUZEN|MAD|REDWOOD|MIDDLE FORK)[^|]{5,140}\\([A-Z0-9]+\\))")
-    metadata["bulletin_group"] = _capture(r"Bulletin Group:\\s*([^|]{2,60})")
-    metadata["river_group"] = _capture(r"River Group:\\s*([^|]{2,60})")
-    metadata["forecast_note"] = _capture(r"Please Note:\\s*(.{20,300}?uncertainty\\.)")
+    metadata["station_title"] = _capture(r"((?:SMITH|EEL|SOUTH FORK|VAN DUZEN|MAD|REDWOOD|MIDDLE FORK)[^|]{5,140}\([A-Z0-9]+\))")
+    metadata["bulletin_group"] = _capture(r"Bulletin Group:\s*([^|]{2,60})")
+    metadata["river_group"] = _capture(r"River Group:\s*([^|]{2,60})")
+    metadata["forecast_note"] = _capture(r"Please Note:\s*(.{20,300}?uncertainty\.)")
     item = {"html":body, "hash":hashlib.sha256(body.encode("utf-8")).hexdigest(),
             "metadata":metadata, "fetched":time.time(), "source":url}
     _CNRFC_PRODUCT_PAGE_CACHE[station_id] = item
