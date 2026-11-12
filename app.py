@@ -1235,6 +1235,40 @@ def _cnrfc_percentile(values, pct):
     fraction = pos - low
     return ordered[low] * (1 - fraction) + ordered[high] * fraction
 
+def _cnrfc_parse_product_page(html_text):
+    """Extract station-specific issuance, flood thresholds and impacts from the official CNRFC product page."""
+    import html
+    page = html.unescape(re.sub(r"<script\b[^>]*>.*?</script>|<style\b[^>]*>.*?</style>", " ", html_text or "", flags=re.I | re.S))
+    page = re.sub(r"<[^>]+>", " ", page)
+    page = re.sub(r"\s+", " ", page).strip()
+    thresholds = {}
+    match = re.search(
+        r"Action:\s*(N/A|[0-9.]+)\s*Feet\s*\|\s*Minor Flood:\s*(N/A|[0-9.]+)\s*Feet\s*\|\s*Moderate Flood:\s*(N/A|[0-9.]+)\s*Feet\s*\|\s*Major Flood:\s*(N/A|[0-9.]+)\s*Feet",
+        page, re.I
+    )
+    if match:
+        for key, value in zip(("action", "minor", "moderate", "major"), match.groups()):
+            thresholds[key] = float(value) if value.upper() != "N/A" else None
+    issuance = None
+    issued = re.search(r"Issuance Time:\s*(.{0,80}?P[SD]T)", page, re.I)
+    if issued:
+        issuance = issued.group(1).strip()
+    site = {}
+    coordinates = re.search(r"Latitude:\s*([0-9.]+)º\s*([NS])\s*\|\s*Longitude:\s*([0-9.]+)º\s*([EW])\s*\|\s*Elevation:\s*([0-9.]+)\s*Feet", page, re.I)
+    if coordinates:
+        lat = float(coordinates.group(1)) * (-1 if coordinates.group(2).upper() == "S" else 1)
+        lon = float(coordinates.group(3)) * (-1 if coordinates.group(4).upper() == "W" else 1)
+        site = {"latitude": lat, "longitude": lon, "elevation_ft": float(coordinates.group(5))}
+    location = re.search(r"Location:\s*(.{3,100}?)\s*Bulletin Group:", page, re.I)
+    if location:
+        site["county"] = location.group(1).strip()
+    impacts = []
+    section = re.search(r"Flood Impacts\s+(.*?)(?:Follow us on|$)", page, re.I)
+    if section:
+        for item in re.finditer(r"([0-9]+(?:\.[0-9]+)?)\s*Feet\s*\|\s*(.*?)(?=(?:[0-9]+(?:\.[0-9]+)?\s*Feet\s*\|)|$)", section.group(1), re.I):
+            impacts.append({"stage_ft": float(item.group(1)), "description": item.group(2).strip()})
+    return {"thresholds": thresholds, "issuance": issuance, "site": site, "flood_impacts": impacts}
+
 def _cnrfc_parse_hourly_csv(csv_text):
     import csv
     import io
@@ -1303,18 +1337,28 @@ def cnrfc_ensemble_api():
                 return jsonify(cached["data"])
         def fetch_station(station):
             url = "https://www.cnrfc.noaa.gov/csv/" + station["id"] + "_hefs_csv_hourly.csv"
+            product_url = "https://www.cnrfc.noaa.gov/ensembleProduct.php?id=" + station["id"] + "&prodID=3"
+            metadata = {"thresholds": {}, "issuance": None, "flood_impacts": []}
+            try:
+                page_response = requests.get(product_url, timeout=20, headers={
+                    "User-Agent": "HumboldtFishers/1.0 (NOAA CNRFC station details)"
+                })
+                page_response.raise_for_status()
+                metadata = _cnrfc_parse_product_page(page_response.text)
+            except Exception as page_exc:
+                app.logger.warning("CNRFC product details unavailable for %s: %s", station["id"], page_exc)
             try:
                 response = requests.get(url, timeout=25, headers={
                     "User-Agent": "HumboldtFishers/1.0 (NOAA CNRFC HEFS data display)"
                 })
                 response.raise_for_status()
                 parsed = _cnrfc_parse_hourly_csv(response.text)
-                return {**station, "ok": True, **parsed, "source": url}
+                return {**station, **metadata, "ok": True, **parsed, "source": url, "product_url": product_url}
             except Exception as exc:
                 app.logger.warning("CNRFC HEFS data unavailable for %s: %s", station["id"], exc)
-                return {**station, "ok": False, "points": [],
+                return {**station, **metadata, "ok": False, "points": [],
                         "error": "NOAA has not returned a usable hourly ensemble CSV for this station.",
-                        "source": url}
+                        "source": url, "product_url": product_url}
         results = {}
         with ThreadPoolExecutor(max_workers=8) as pool:
             futures = [pool.submit(fetch_station, s) for s in _CNRFC_ENSEMBLE_STATIONS]
@@ -1329,6 +1373,75 @@ def cnrfc_ensemble_api():
         }
         _CNRFC_ENSEMBLE_CACHE.update(fetched=now, data=payload)
         return jsonify(payload)
+
+
+# Serve NOAA's own mobile short-range peak exceedance product through a same-origin
+# route. This preserves NOAA's native graph, legend, probability shading and controls.
+_CNRFC_PRODUCT_PAGE_CACHE = {}
+_CNRFC_PRODUCT_PAGE_TTL = 900
+_CNRFC_PRODUCT_STATIONS = [
+    {"id":"CREC1","name":"Smith River — Jedediah Smith SP near Crescent City"},
+    {"id":"SCOC1","name":"Eel River — Scotia"},
+    {"id":"MRNC1","name":"South Fork Eel River — Miranda"},
+    {"id":"BRGC1","name":"Van Duzen River — Bridgeville"},
+    {"id":"ARCC1","name":"Mad River — Arcata"},
+    {"id":"ORIC1","name":"Redwood Creek — Orick"},
+    {"id":"FTDC1","name":"Smith River — Doctor Fine Bridge"},
+    {"id":"DOSC1","name":"Middle Fork Eel River — Dos Rios"},
+]
+
+def _cnrfc_fetch_native_page(station_id, force=False):
+    import hashlib, time
+    cached = _CNRFC_PRODUCT_PAGE_CACHE.get(station_id)
+    if cached and not force and time.time() - cached["fetched"] < _CNRFC_PRODUCT_PAGE_TTL:
+        return cached
+    url = "https://www.cnrfc.noaa.gov/mobile/ensembleImage.php?id=" + station_id + "&type=3"
+    response = requests.get(url, timeout=25, headers={"User-Agent":"Mozilla/5.0 (compatible; HumboldtFishers/1.0)"})
+    response.raise_for_status()
+    body = response.text
+    if "Short-Range Peak Exceedance Plot" not in body:
+        raise ValueError("NOAA did not return its short-range peak exceedance product.")
+    item = {"html":body, "hash":hashlib.sha256(body.encode("utf-8")).hexdigest(),
+            "fetched":time.time(), "source":url}
+    _CNRFC_PRODUCT_PAGE_CACHE[station_id] = item
+    return item
+
+@app.route("/api/cnrfc-product-status")
+def cnrfc_product_status_api():
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    force = request.args.get("refresh") == "1"
+    def check(station):
+        try:
+            item = _cnrfc_fetch_native_page(station["id"], force)
+            return {**station, "ok":True, "hash":item["hash"]}
+        except Exception:
+            app.logger.exception("NOAA product check failed for %s", station["id"])
+            return {**station, "ok":False}
+    results = {}
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = [pool.submit(check, x) for x in _CNRFC_PRODUCT_STATIONS]
+        for future in as_completed(futures):
+            item = future.result()
+            results[item["id"]] = item
+    return jsonify({"updated":datetime.now(PACIFIC).isoformat(),
+                    "stations":[results[x["id"]] for x in _CNRFC_PRODUCT_STATIONS]})
+
+@app.route("/cnrfc/product/<station_id>")
+def cnrfc_product_proxy(station_id):
+    from flask import Response
+    station_id = station_id.upper()
+    if station_id not in {x["id"] for x in _CNRFC_PRODUCT_STATIONS}:
+        abort(404)
+    try:
+        item = _cnrfc_fetch_native_page(station_id, request.args.get("refresh") == "1")
+        page = item["html"]
+        base = '<base href="https://www.cnrfc.noaa.gov/mobile/">'
+        page = re.sub(r"(<head\b[^>]*>)", lambda m:m.group(1)+base, page, count=1, flags=re.I)
+        return Response(page, content_type="text/html; charset=utf-8",
+                        headers={"Cache-Control":"no-store"})
+    except Exception:
+        app.logger.exception("NOAA product proxy failed for %s", station_id)
+        return ("NOAA's product page is temporarily unavailable.", 502)
 
 @app.route("/api/river-flow")
 def river_flow_api():
