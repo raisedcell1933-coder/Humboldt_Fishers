@@ -1238,25 +1238,25 @@ def _cnrfc_percentile(values, pct):
 def _cnrfc_parse_product_page(html_text):
     """Extract station-specific issuance, flood thresholds and impacts from the official CNRFC product page."""
     import html
-    page = html.unescape(re.sub(r"<script\\b[^>]*>.*?</script>|<style\\b[^>]*>.*?</style>", " ", html_text or "", flags=re.I | re.S))
+    page = html.unescape(re.sub(r"<script\b[^>]*>.*?</script>|<style\b[^>]*>.*?</style>", " ", html_text or "", flags=re.I | re.S))
     page = re.sub(r"<[^>]+>", " ", page)
-    page = re.sub(r"\\s+", " ", page).strip()
+    page = re.sub(r"\s+", " ", page).strip()
     thresholds = {}
     match = re.search(
-        r"Action:\\s*(N/A|[0-9.]+)\\s*Feet\\s*\\|\\s*Minor Flood:\\s*(N/A|[0-9.]+)\\s*Feet\\s*\\|\\s*Moderate Flood:\\s*(N/A|[0-9.]+)\\s*Feet\\s*\\|\\s*Major Flood:\\s*(N/A|[0-9.]+)\\s*Feet",
+        r"Action:\s*(N/A|[0-9.]+)\s*Feet\s*\|\s*Minor Flood:\s*(N/A|[0-9.]+)\s*Feet\s*\|\s*Moderate Flood:\s*(N/A|[0-9.]+)\s*Feet\s*\|\s*Major Flood:\s*(N/A|[0-9.]+)\s*Feet",
         page, re.I
     )
     if match:
         for key, value in zip(("action", "minor", "moderate", "major"), match.groups()):
             thresholds[key] = float(value) if value.upper() != "N/A" else None
     issuance = None
-    issued = re.search(r"Issuance Time:\\s*(.{0,80}?P[SD]T)", page, re.I)
+    issued = re.search(r"Issuance Time:\s*(.{0,80}?P[SD]T)", page, re.I)
     if issued:
         issuance = issued.group(1).strip()
     impacts = []
-    section = re.search(r"Flood Impacts\\s+(.*?)(?:Follow us on|$)", page, re.I)
+    section = re.search(r"Flood Impacts\s+(.*?)(?:Follow us on|$)", page, re.I)
     if section:
-        for item in re.finditer(r"([0-9]+(?:\\.[0-9]+)?)\\s*Feet\\s*\\|\\s*(.*?)(?=(?:[0-9]+(?:\\.[0-9]+)?\\s*Feet\\s*\\|)|$)", section.group(1), re.I):
+        for item in re.finditer(r"([0-9]+(?:\.[0-9]+)?)\s*Feet\s*\|\s*(.*?)(?=(?:[0-9]+(?:\.[0-9]+)?\s*Feet\s*\|)|$)", section.group(1), re.I):
             impacts.append({"stage_ft": float(item.group(1)), "description": item.group(2).strip()})
     return {"thresholds": thresholds, "issuance": issuance, "flood_impacts": impacts}
 
