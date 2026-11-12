@@ -235,61 +235,102 @@ loadFlow();setInterval(()=>loadFlow(false),15*60*1000);
  const basic=document.getElementById('flow-grid');
  const detailed=document.getElementById('ensemble-view');
  if(!toggle||!basic||!detailed)return;
+ let loaded=false, loading=false, charts=[], currentDays=5, lastPayload=null;
  const refreshMs=15*60*1000;
- let loaded=false,checking=false,lastHashes={};
  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]});}
- function render(stations){
-   detailed.innerHTML='';
-   stations.forEach(function(station){
-     const card=document.createElement('article');
-     card.className='ensemble-card cnrfc-native-card';
-     card.innerHTML='<h3>'+esc(station.name)+'</h3><p class="ensemble-meta">Official NOAA CNRFC short-range peak exceedance product · '+esc(station.id)+'</p>';
-     if(!station.ok){
-       card.insertAdjacentHTML('beforeend','<p class="flow-state">NOAA product could not be checked right now. Existing graphs have been left unchanged.</p>');
-     }else{
-       const frame=document.createElement('iframe');
-       frame.className='cnrfc-native-frame';
-       frame.title='Official NOAA graph and information for '+station.name;
-       frame.loading='lazy';
-       frame.src='/cnrfc/product/'+encodeURIComponent(station.id)+'?v='+encodeURIComponent(station.hash);
-       card.appendChild(frame);
-       lastHashes[station.id]=station.hash;
-     }
-     detailed.appendChild(card);
+ function destroyCharts(){charts.forEach(function(c){c.chart.destroy();});charts=[];}
+ function renderGauge(g,index){
+  const card=document.createElement('article');card.className='ensemble-card';
+  card.innerHTML='<h3>'+esc(g.name)+'</h3><p class="ensemble-meta">NOAA CNRFC · Short-Range Peak Exceedance · '+esc(g.id)+(g.issuance?' · Issued '+esc(g.issuance):'')+'</p>';
+  const th=g.thresholds||{};
+  const thresholdItems=[['Action',th.action],['Minor flood',th.minor],['Moderate flood',th.moderate],['Major flood',th.major]];
+  const thresholdHtml=thresholdItems.some(function(x){return x[1]!==undefined;})
+   ?'<div class="cnrfc-thresholds">'+thresholdItems.map(function(x){return '<div class="cnrfc-threshold"><span>'+x[0]+'</span><strong>'+(x[1]===null||x[1]===undefined?'N/A':Number(x[1]).toFixed(1)+' ft')+'</strong></div>';}).join('')+'</div>'
+   :'<p class="ensemble-meta">Flood-stage thresholds were not available from the CNRFC page at this update.</p>';
+  card.insertAdjacentHTML('beforeend',thresholdHtml);
+  if(Array.isArray(g.flood_impacts)&&g.flood_impacts.length){
+   card.insertAdjacentHTML('beforeend','<details class="cnrfc-impacts"><summary>NOAA flood impacts at this river gauge ('+g.flood_impacts.length+' levels)</summary><div class="flow-table-wrap"><table class="flow-table"><thead><tr><th>River level</th><th>NOAA impact description</th></tr></thead><tbody>'+g.flood_impacts.map(function(x){return '<tr><td>'+Number(x.stage_ft).toFixed(1)+' ft</td><td>'+esc(x.description)+'</td></tr>';}).join('')+'</tbody></table></div></details>');
+  }
+  if(!g.ok||!Array.isArray(g.points)||!g.points.length){
+   card.insertAdjacentHTML('beforeend','<p class="flow-state">NOAA has not returned a usable hourly ensemble forecast for this station. No substitute data are shown.</p><a class="ensemble-link" href="'+esc(g.product_url||g.source)+'" target="_blank" rel="noopener">Open official NOAA CNRFC product ↗</a>');
+   detailed.appendChild(card);return;
+  }
+  const points=g.points;
+  const shown=points.slice(0,currentDays*24);
+  const labels=shown.map(function(p){return new Date(p.time).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric'});});
+  const traceSets=(g.traces||[]).map(function(trace,i){
+   return {label:'Model traces',data:shown.map(function(p){return p.trace_values&&i<p.trace_values.length?p.trace_values[i]:null;}),borderColor:'rgba(105,130,145,.22)',borderWidth:1,pointRadius:0,fill:false,tension:0,order:2};
+  });
+  const lower={label:'Ensemble lower range (10th percentile)',data:shown.map(function(p){return p.p10;}),borderColor:'rgba(75,140,175,.45)',backgroundColor:'rgba(75,140,175,.12)',borderWidth:1,pointRadius:0,fill:false,order:1};
+  const upper={label:'Ensemble upper range (90th percentile)',data:shown.map(function(p){return p.p90;}),borderColor:'rgba(75,140,175,.45)',backgroundColor:'rgba(75,140,175,.12)',borderWidth:1,pointRadius:0,fill:'-1',order:1};
+  const mean={label:'Ensemble mean',data:shown.map(function(p){return p.mean;}),borderColor:'#145d86',backgroundColor:'#145d86',borderWidth:2.5,pointRadius:0,fill:false,tension:0,order:0};
+  card.insertAdjacentHTML('beforeend',
+   '<div class="ensemble-controls"><button type="button" class="ensemble-range '+(currentDays===5?'active':'')+'" data-days="5">5 Days</button><button type="button" class="ensemble-range '+(currentDays===10?'active':'')+'" data-days="10">10 Days</button><span class="ensemble-meta">Forecast horizon</span></div>'+
+   '<div class="ensemble-chart-wrap"><canvas id="cnrfc-chart-'+index+'" aria-label="'+esc(g.name)+' NOAA CNRFC ensemble forecast"></canvas></div>'+
+   '<p class="ensemble-meta">Hourly flow forecast · CFS · Individual NOAA HEFS model traces, ensemble mean and 10th–90th percentile spread. The station-specific flood thresholds and impact descriptions above are taken from this gauge’s CNRFC product page. River-level thresholds are shown separately because this hourly CSV provides flow (CFS), not stage (feet).</p>'+
+   '<details><summary>View hourly NOAA ensemble values</summary><div class="flow-table-wrap"><table class="flow-table"><thead><tr><th>Valid time</th><th>Ensemble mean</th><th>10th percentile</th><th>50th percentile</th><th>90th percentile</th><th>Members</th></tr></thead><tbody>'+
+   shown.map(function(p){return '<tr><td>'+esc(new Date(p.time).toLocaleString())+'</td><td>'+Number(p.mean).toLocaleString()+'</td><td>'+Number(p.p10).toLocaleString()+'</td><td>'+Number(p.p50).toLocaleString()+'</td><td>'+Number(p.p90).toLocaleString()+'</td><td>'+esc(p.members)+'</td></tr>';}).join('')+
+   '</tbody></table></div></details><a class="ensemble-link" href="'+esc(g.product_url||g.source)+'" target="_blank" rel="noopener">Open this gauge’s official NOAA CNRFC page ↗</a>');
+  detailed.appendChild(card);
+  const datasets=traceSets.concat([lower,upper,mean]);
+  const chart=new Chart(card.querySelector('canvas'),{type:'line',data:{labels:labels,datasets:datasets},options:{
+   responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
+   plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:9,filter:function(item,data){return item.datasetIndex>=traceSets.length-3;}}},tooltip:{callbacks:{label:function(c){return c.dataset.label+': '+Number(c.parsed.y).toLocaleString()+' CFS';}}}},
+   scales:{x:{grid:{color:'rgba(120,140,150,.12)'},ticks:{maxTicksLimit:9,maxRotation:0},title:{display:true,text:'Forecast valid time'}},y:{beginAtZero:true,grid:{color:'rgba(120,140,150,.15)'},title:{display:true,text:'Flow (CFS)'}}}
+  }});
+  charts.push({chart:chart,gauge:g,index:index});
+  card.querySelectorAll('.ensemble-range').forEach(function(button){button.addEventListener('click',function(){
+   currentDays=Number(button.dataset.days);
+   card.querySelectorAll('.ensemble-range').forEach(function(b){b.classList.toggle('active',b===button);});
+   const n=points.slice(0,currentDays*24);
+   chart.data.labels=n.map(function(p){return new Date(p.time).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric'});});
+   chart.data.datasets.forEach(function(ds,di){
+    if(di<traceSets.length)ds.data=n.map(function(p){return p.trace_values&&di<p.trace_values.length?p.trace_values[di]:null;});
+    else if(di===traceSets.length)ds.data=n.map(function(p){return p.p10;});
+    else if(di===traceSets.length+1)ds.data=n.map(function(p){return p.p90;});
+    else ds.data=n.map(function(p){return p.mean;});
    });
-   detailed.insertAdjacentHTML('afterbegin','<p class="ensemble-meta cnrfc-refresh-status" aria-live="polite">Official NOAA product checked: '+new Date().toLocaleString()+'</p>');
-   loaded=true;
+   chart.update();
+  });});
  }
- async function check(force){
-   if(checking)return;
-   checking=true;
-   try{
-     const response=await fetch('/api/cnrfc-product-status'+(force?'?refresh=1':''),{cache:'no-store'});
-     if(!response.ok)throw new Error('NOAA status request failed');
-     const data=await response.json();
-     const stations=data.stations||[];
-     const changed=!loaded||stations.some(function(x){return x.ok&&lastHashes[x.id]!==x.hash;});
-     if(changed)render(stations);
-     else{
-       const status=detailed.querySelector('.cnrfc-refresh-status');
-       if(status)status.textContent='NOAA checked '+new Date(data.updated).toLocaleString()+' · No new product data; graphs left unchanged.';
-     }
-   }catch(error){
-     const status=detailed.querySelector('.cnrfc-refresh-status');
-     if(status)status.textContent='Could not check NOAA. Existing graphs have been left unchanged.';
-     if(!loaded)detailed.innerHTML='<p class="flow-warning">Could not load the official NOAA product pages. Please retry.</p><button class="btn" id="cnrfc-retry" type="button">Retry NOAA</button>';
-     const retry=detailed.querySelector('#cnrfc-retry');
-     if(retry)retry.addEventListener('click',function(){check(true);});
-   }finally{checking=false;}
+ function render(payload){
+  lastPayload=payload;destroyCharts();detailed.innerHTML='';
+  (payload.gauges||[]).forEach(renderGauge);
+  ['Mattole River','Mendocino Coast Streams'].forEach(function(name){
+   const card=document.createElement('article');card.className='ensemble-card';
+   card.innerHTML='<h3>'+esc(name)+'</h3><p class="flow-state">No verified matching CNRFC HEFS station is available for this river group. No estimated graph is substituted.</p>';
+   detailed.appendChild(card);
+  });
+  const loadedCount=(payload.gauges||[]).filter(function(g){return g.ok;}).length;
+  detailed.insertAdjacentHTML('afterbegin','<p class="flow-warning">Live source: NOAA CNRFC HEFS hourly ensemble CSV. Last successful retrieval: '+esc(new Date(payload.updated).toLocaleString())+'. '+loadedCount+' of '+(payload.gauges||[]).length+' station files loaded. The ensemble mean and model traces are NOAA forecast data. The 10th–90th percentile envelope summarizes model spread; it is not the same as NOAA’s threshold exceedance probability bands.</p>');
+  loaded=true;
+ }
+ async function build(force){
+  if(loading)return;
+  if(loaded&&!force)return;
+  loading=true;
+  if(!loaded)detailed.innerHTML='<p class="flow-state">Loading official NOAA CNRFC forecast data…</p>';
+  try{
+   const response=await fetch('/api/cnrfc-ensemble'+(force?'?refresh=1':''),{cache:'no-store'});
+   const data=await response.json();
+   if(!response.ok)throw new Error(data.error||'NOAA data request failed');
+   render(data);
+  }catch(error){
+   if(!loaded)detailed.innerHTML='<p class="flow-warning">Official NOAA CNRFC data could not be loaded. No estimated graph is shown.</p><button class="btn" type="button" id="cnrfc-retry">Retry NOAA data</button>';
+   const retry=detailed.querySelector('#cnrfc-retry');
+   if(retry)retry.addEventListener('click',function(){build(true);});
+  }finally{loading=false;}
  }
  toggle.addEventListener('click',function(){
-   const show=detailed.hidden;
-   detailed.hidden=!show;basic.hidden=show;
-   toggle.setAttribute('aria-expanded',String(show));
-   toggle.textContent=show?'Show Weekly River Height & Flow':'More Informational Graph';
-   if(show)check(false);
+  const show=detailed.hidden;
+  detailed.hidden=!show;basic.hidden=show;
+  toggle.setAttribute('aria-expanded',String(show));
+  toggle.textContent=show?'Show Weekly River Height & Flow':'More Informational Graph';
+  if(show)build(false);
  });
- setInterval(function(){if(!detailed.hidden)check(true);},refreshMs);
+ setInterval(function(){
+  if(!detailed.hidden)build(true);
+ },refreshMs);
 })();
 </script>
 </body></html>
