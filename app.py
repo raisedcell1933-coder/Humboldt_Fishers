@@ -1437,6 +1437,36 @@ def cnrfc_product_proxy(station_id):
         page = item["html"]
         base = '<base href="https://www.cnrfc.noaa.gov/mobile/">'
         page = re.sub(r"(<head\b[^>]*>)", lambda m:m.group(1)+base, page, count=1, flags=re.I)
+        # Hide NOAA's global masthead and navigation; preserve the station-specific
+        # metadata, exceedance graph, chart controls and flood-impact information.
+        hide_noaa_chrome = r"""
+<script>
+(function(){
+ function clean(){
+   var labels=['Short-Rng Pks','10D Prob','10 Accum','4x5D Prob','Mnth Prob','Seas Trnd','WY Trend','WY Accum','Multi-Yr Accum','Historical','Verification','Custom','Prev. Point','Next Point','Back to Points','Back to Home'];
+   document.querySelectorAll('a,button').forEach(function(n){
+     var t=(n.textContent||'').replace(/\s+/g,' ').trim();
+     if(labels.indexOf(t)>=0){
+       var row=n.closest('tr');
+       if(row)row.remove();
+       else {var p=n.parentElement;if(p&&p.children.length<=3)p.remove();else n.remove();}
+     }
+   });
+   document.querySelectorAll('img').forEach(function(img){
+     var m=((img.getAttribute('src')||'')+' '+(img.getAttribute('alt')||'')+' '+(img.getAttribute('title')||'')).toLowerCase();
+     if(/noaa|nws|logo/.test(m)){var box=img.closest('header')||img.closest('table')||img.parentElement;if(box)box.remove();}
+   });
+   document.querySelectorAll('body > table').forEach(function(t){
+     var x=(t.innerText||'').replace(/\s+/g,' ');
+     if(/Short-Rng Pks/.test(x)&&/Back to Home/.test(x))t.remove();
+   });
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',clean);else clean();
+ setTimeout(clean,250);setTimeout(clean,1000);
+})();
+</script>
+"""
+        page = re.sub(r"</body>", hide_noaa_chrome + "</body>", page, count=1, flags=re.I)
         return Response(page, content_type="text/html; charset=utf-8",
                         headers={"Cache-Control":"no-store"})
     except Exception:
