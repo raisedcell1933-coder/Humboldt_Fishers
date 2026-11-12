@@ -1190,6 +1190,133 @@ def rivers_api():
                         "detail":"The latest official status could not be read automatically. Please check CDFW directly.", "source":source_url}
                         for r in river_columns]}), 502
 
+
+# CNRFC HEFS hourly ensemble feeds used by the More Informational Graph section.
+_CNRFC_ENSEMBLE_STATIONS = [
+    {"name": "Smith River — Jedediah Smith SP near Crescent City", "id": "CREC1"},
+    {"name": "Eel River — Scotia", "id": "SCOC1"},
+    {"name": "South Fork Eel River — Miranda", "id": "MRNC1"},
+    {"name": "Van Duzen River — Bridgeville", "id": "BRGC1"},
+    {"name": "Mad River — Arcata", "id": "ARCC1"},
+    {"name": "Redwood Creek — Orick", "id": "ORIC1"},
+    {"name": "Smith River — Doctor Fine Bridge", "id": "FTDC1"},
+    {"name": "Middle Fork Eel River — Dos Rios", "id": "DOSC1"},
+]
+_CNRFC_ENSEMBLE_CACHE = {"fetched": None, "data": None}
+_CNRFC_ENSEMBLE_LOCK = Lock()
+
+def _cnrfc_parse_time(value):
+    from datetime import timezone
+    value = str(value or "").strip().strip('"')
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        else:
+            parsed = parsed.astimezone(timezone.utc)
+        return parsed
+    except ValueError:
+        for fmt in ("%m/%d/%Y %H:%M", "%m/%d/%Y %H:%M:%S", "%Y/%m/%d %H:%M", "%Y-%m-%d %H:%M"):
+            try:
+                return datetime.strptime(value, fmt).replace(tzinfo=timezone.utc)
+            except ValueError:
+                continue
+    return None
+
+def _cnrfc_percentile(values, pct):
+    ordered = sorted(values)
+    if not ordered:
+        return None
+    pos = (len(ordered) - 1) * pct
+    low = int(pos)
+    high = min(low + 1, len(ordered) - 1)
+    fraction = pos - low
+    return ordered[low] * (1 - fraction) + ordered[high] * fraction
+
+def _cnrfc_parse_hourly_csv(csv_text):
+    import csv
+    import io
+    points = []
+    for row in csv.reader(io.StringIO(csv_text.lstrip("\\ufeff"))):
+        if len(row) < 2:
+            continue
+        stamp = _cnrfc_parse_time(row[0])
+        value_cells = row[1:]
+        if stamp is None and len(row) > 2:
+            stamp = _cnrfc_parse_time(row[0] + " " + row[1])
+            value_cells = row[2:]
+        if stamp is None:
+            continue
+        values = []
+        for cell in value_cells:
+            try:
+                number = float(str(cell).strip())
+            except (TypeError, ValueError):
+                continue
+            if number == -999 or number < 0:
+                continue
+            # NOAA CNRFC hourly HEFS ensemble flow data are published in kcfs.
+            values.append(number * 1000.0)
+        if values:
+            points.append({
+                "time": stamp.isoformat().replace("+00:00", "Z"),
+                "members": len(values),
+                "p10": round(_cnrfc_percentile(values, .10), 2),
+                "p25": round(_cnrfc_percentile(values, .25), 2),
+                "p50": round(_cnrfc_percentile(values, .50), 2),
+                "p75": round(_cnrfc_percentile(values, .75), 2),
+                "p90": round(_cnrfc_percentile(values, .90), 2),
+            })
+    if not points:
+        raise ValueError("NOAA CNRFC CSV did not contain recognizable dated ensemble rows.")
+    return points
+
+@app.route("/api/cnrfc-ensemble")
+def cnrfc_ensemble_api():
+    """Return percentile summaries calculated from official CNRFC hourly HEFS CSV traces."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    now = datetime.now(PACIFIC)
+    cached = _CNRFC_ENSEMBLE_CACHE
+    if not request.args.get("refresh") and cached["data"] and cached["fetched"]:
+        if (now - cached["fetched"]).total_seconds() < 900:
+            return jsonify(cached["data"])
+    with _CNRFC_ENSEMBLE_LOCK:
+        now = datetime.now(PACIFIC)
+        cached = _CNRFC_ENSEMBLE_CACHE
+        if not request.args.get("refresh") and cached["data"] and cached["fetched"]:
+            if (now - cached["fetched"]).total_seconds() < 900:
+                return jsonify(cached["data"])
+        def fetch_station(station):
+            url = "https://www.cnrfc.noaa.gov/csv/" + station["id"] + "_hefs_csv_hourly.csv"
+            try:
+                response = requests.get(url, timeout=25, headers={
+                    "User-Agent": "HumboldtFishers/1.0 (NOAA CNRFC HEFS data display)"
+                })
+                response.raise_for_status()
+                points = _cnrfc_parse_hourly_csv(response.text)
+                return {**station, "ok": True, "points": points, "source": url}
+            except Exception as exc:
+                app.logger.warning("CNRFC HEFS data unavailable for %s: %s", station["id"], exc)
+                return {**station, "ok": False, "points": [],
+                        "error": "NOAA has not returned a usable hourly ensemble CSV for this station.",
+                        "source": url}
+        results = {}
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            futures = [pool.submit(fetch_station, s) for s in _CNRFC_ENSEMBLE_STATIONS]
+            for future in as_completed(futures):
+                result = future.result()
+                results[result["id"]] = result
+        payload = {
+            "updated": now.isoformat(),
+            "source": "NOAA California-Nevada River Forecast Center (CNRFC) HEFS hourly ensemble CSV",
+            "units": "CFS",
+            "gauges": [results[s["id"]] for s in _CNRFC_ENSEMBLE_STATIONS],
+        }
+        _CNRFC_ENSEMBLE_CACHE.update(fetched=now, data=payload)
+        return jsonify(payload)
+
 @app.route("/api/river-flow")
 def river_flow_api():
     """Fetch NOAA/NWS observed and forecast stage/flow for mapped Humboldt-area gauges."""
