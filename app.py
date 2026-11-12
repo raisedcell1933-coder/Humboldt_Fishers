@@ -1374,6 +1374,75 @@ def cnrfc_ensemble_api():
         _CNRFC_ENSEMBLE_CACHE.update(fetched=now, data=payload)
         return jsonify(payload)
 
+
+# Serve NOAA's own mobile short-range peak exceedance product through a same-origin
+# route. This preserves NOAA's native graph, legend, probability shading and controls.
+_CNRFC_PRODUCT_PAGE_CACHE = {}
+_CNRFC_PRODUCT_PAGE_TTL = 900
+_CNRFC_PRODUCT_STATIONS = [
+    {"id":"CREC1","name":"Smith River — Jedediah Smith SP near Crescent City"},
+    {"id":"SCOC1","name":"Eel River — Scotia"},
+    {"id":"MRNC1","name":"South Fork Eel River — Miranda"},
+    {"id":"BRGC1","name":"Van Duzen River — Bridgeville"},
+    {"id":"ARCC1","name":"Mad River — Arcata"},
+    {"id":"ORIC1","name":"Redwood Creek — Orick"},
+    {"id":"FTDC1","name":"Smith River — Doctor Fine Bridge"},
+    {"id":"DOSC1","name":"Middle Fork Eel River — Dos Rios"},
+]
+
+def _cnrfc_fetch_native_page(station_id, force=False):
+    import hashlib, time
+    cached = _CNRFC_PRODUCT_PAGE_CACHE.get(station_id)
+    if cached and not force and time.time() - cached["fetched"] < _CNRFC_PRODUCT_PAGE_TTL:
+        return cached
+    url = "https://www.cnrfc.noaa.gov/mobile/ensembleImage.php?id=" + station_id + "&type=3"
+    response = requests.get(url, timeout=25, headers={"User-Agent":"Mozilla/5.0 (compatible; HumboldtFishers/1.0)"})
+    response.raise_for_status()
+    body = response.text
+    if "Short-Range Peak Exceedance Plot" not in body:
+        raise ValueError("NOAA did not return its short-range peak exceedance product.")
+    item = {"html":body, "hash":hashlib.sha256(body.encode("utf-8")).hexdigest(),
+            "fetched":time.time(), "source":url}
+    _CNRFC_PRODUCT_PAGE_CACHE[station_id] = item
+    return item
+
+@app.route("/api/cnrfc-product-status")
+def cnrfc_product_status_api():
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    force = request.args.get("refresh") == "1"
+    def check(station):
+        try:
+            item = _cnrfc_fetch_native_page(station["id"], force)
+            return {**station, "ok":True, "hash":item["hash"]}
+        except Exception:
+            app.logger.exception("NOAA product check failed for %s", station["id"])
+            return {**station, "ok":False}
+    results = {}
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = [pool.submit(check, x) for x in _CNRFC_PRODUCT_STATIONS]
+        for future in as_completed(futures):
+            item = future.result()
+            results[item["id"]] = item
+    return jsonify({"updated":datetime.now(PACIFIC).isoformat(),
+                    "stations":[results[x["id"]] for x in _CNRFC_PRODUCT_STATIONS]})
+
+@app.route("/cnrfc/product/<station_id>")
+def cnrfc_product_proxy(station_id):
+    from flask import Response
+    station_id = station_id.upper()
+    if station_id not in {x["id"] for x in _CNRFC_PRODUCT_STATIONS}:
+        abort(404)
+    try:
+        item = _cnrfc_fetch_native_page(station_id, request.args.get("refresh") == "1")
+        page = item["html"]
+        base = '<base href="https://www.cnrfc.noaa.gov/mobile/">'
+        page = re.sub(r"(<head\b[^>]*>)", lambda m:m.group(1)+base, page, count=1, flags=re.I)
+        return Response(page, content_type="text/html; charset=utf-8",
+                        headers={"Cache-Control":"no-store"})
+    except Exception:
+        app.logger.exception("NOAA product proxy failed for %s", station_id)
+        return ("NOAA's product page is temporarily unavailable.", 502)
+
 @app.route("/api/river-flow")
 def river_flow_api():
     """Fetch NOAA/NWS observed and forecast stage/flow for mapped Humboldt-area gauges."""
