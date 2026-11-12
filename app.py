@@ -1429,9 +1429,6 @@ def cnrfc_product_status_api():
 @app.route("/cnrfc/product/<station_id>")
 def cnrfc_product_proxy(station_id):
     from flask import Response
-    # The NOAA proxy is an iframe-only endpoint. Direct visits return to the Rivers page.
-    if request.args.get("embed") != "1":
-        return redirect(url_for("rivers_page") + "?show_informational_graph=1")
     station_id = station_id.upper()
     if station_id not in {x["id"] for x in _CNRFC_PRODUCT_STATIONS}:
         abort(404)
