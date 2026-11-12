@@ -253,7 +253,7 @@ loadFlow();setInterval(()=>loadFlow(false),15*60*1000);
  let loaded=false;
  function build(){
   if(loaded)return;
-  detailed.innerHTML=products.map((p,i)=>p.unavailable?'<article class="ensemble-card"><h3>'+p.name+'</h3><p>A matching CNRFC ensemble forecast station is not currently configured for this river. The regular NOAA height/flow charts remain available in the weekly view.</p></article>':'<article class="ensemble-card"><h3>'+p.name+'</h3><p>NOAA California-Nevada River Forecast Center · Ensemble peak exceedance forecast · Station '+p.id+'</p><a class="ensemble-link" href="'+source(p.id)+'" target="_blank" rel="noopener">Open this NOAA graph in a new tab ↗</a><iframe class="ensemble-frame" title="NOAA ensemble river forecast for '+p.name+'" src="'+source(p.id)+'" loading="'+(i<2?'eager':'lazy')+'" referrerpolicy="strict-origin-when-cross-origin"></iframe></article>').join('');
+  detailed.innerHTML='<p class="flow-warning">NOAA does not allow its forecast pages to be embedded inside Humboldt Fishers. These links open the original, live NOAA graph directly, so all plotted values and probability bands come from NOAA without being copied or recreated.</p>'+products.map(p=>p.unavailable?'<article class="ensemble-card"><h3>'+p.name+'</h3><p>A matching NOAA CNRFC Short-Range Peaks station has not been verified for this river. No substitute graph is shown.</p></article>':'<article class="ensemble-card"><h3>'+p.name+'</h3><p>Official NOAA CNRFC · Short-Range Peaks · Station '+p.id+'</p><a class="ensemble-link" href="'+source(p.id)+'" target="_blank" rel="noopener">Open the official live NOAA graph ↗</a></article>').join('');
   loaded=true;
  }
  toggle.addEventListener('click',function(){
@@ -263,17 +263,7 @@ loadFlow();setInterval(()=>loadFlow(false),15*60*1000);
   basic.hidden=show;
   toggle.setAttribute('aria-expanded',String(show));
   toggle.textContent=show?'Show Weekly River Height & Flow':'More Informational Graph';
-  if(show){detailed.querySelectorAll('iframe').forEach(frame=>{if(frame.dataset.loaded==='true')return;frame.dataset.loaded='true';});}
  });
- // Refresh embedded NOAA products on the same 15-minute cadence as the
- // regular river graphs, without disturbing the normal weekly chart view.
- setInterval(function(){
-  if(detailed.hidden)return;
-  detailed.querySelectorAll('iframe').forEach(frame=>{
-   const current=frame.getAttribute('src');
-   if(current)frame.setAttribute('src',current);
-  });
- },15*60*1000);
 })();
 </script>
 </body></html>
