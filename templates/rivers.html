@@ -35,7 +35,7 @@ main{max-width:1120px;margin:auto;padding:30px 22px}
 .flow-section{margin-top:34px}.flow-section h2{color:#173644;font-size:28px;margin:0 0 8px}.flow-intro{color:#62737c;margin:0 0 16px}.flow-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:16px}.flow-card{min-width:0;background:#fff;border:1px solid #dce6eb;border-radius:13px;padding:16px;box-shadow:0 8px 26px rgba(25,57,72,.04)}.flow-card h3{margin:0 0 3px;color:#183847;font-size:19px}.station{font-size:13px;color:#71828a;margin-bottom:12px}.flow-state{font-size:13px;color:#536a75;margin:8px 0 12px}.chart-wrap{position:relative;height:210px;margin:12px 0 18px}.chart-title{font-size:14px;font-weight:700;color:#284d5c;margin-top:12px}.flow-card a{font-size:13px}.flow-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}.flow-table th,.flow-table td{text-align:left;padding:6px;border-bottom:1px solid #e8eef1}.flow-table-wrap{max-height:230px;overflow:auto}.flow-card details{margin-top:10px}.flow-card summary{cursor:pointer;color:#238fca;font-weight:700;font-size:13px}.flow-warning{background:#fff8e9;border:1px solid #f1dfb5;color:#735a20;border-radius:8px;padding:12px;margin:14px 0;font-size:13px}
 a{color:#238fca}
 @media(max-width:650px){.topbar{padding:14px 16px;align-items:flex-start;flex-direction:column}.site-nav{gap:13px}.site-nav a{font-size:13px}main{padding:24px 14px}}
-</style><style>
+.ensemble-grid{display:grid;grid-template-columns:1fr;gap:18px;margin-top:18px}.ensemble-card{min-width:0;background:#fff;border:1px solid #dce6eb;border-radius:13px;padding:14px;box-shadow:0 8px 26px rgba(25,57,72,.04)}.ensemble-card h3{margin:0 0 4px;color:#183847;font-size:19px}.ensemble-card p{margin:4px 0 10px;color:#62737c;font-size:13px}.ensemble-frame{display:block;width:100%;height:900px;border:1px solid #dce6eb;border-radius:8px;background:#fff}.ensemble-link{display:inline-block;margin:0 0 10px;font-weight:700}@media(max-width:650px){.ensemble-frame{height:760px}}</style><style>
 /* Compact top-right hamburger with a right-side slide-out navigation drawer */
 .topbar{position:sticky!important;top:0!important;z-index:10000!important;display:flex!important;align-items:center!important;justify-content:space-between!important;min-height:58px!important;height:auto!important;flex-direction:row!important;flex-wrap:nowrap!important;padding:10px 18px!important;gap:12px!important}
 .menu-toggle{display:flex!important;align-items:center!important;justify-content:center!important;position:fixed!important;top:8px!important;right:12px!important;z-index:10003!important;width:42px!important;height:42px!important;padding:0!important;margin:0!important;border:1px solid rgba(100,150,170,.35)!important;border-radius:9px!important;background:#071725!important;color:#fff!important;font-size:25px!important;line-height:1!important;cursor:pointer!important;box-shadow:0 3px 12px rgba(0,0,0,.18)!important}
@@ -72,9 +72,10 @@ a{color:#238fca}
 <h2 id="flow-title">Weekly River Height & Flow</h2>
 <p class="flow-intro">Monday–Sunday charts using NOAA/NWS gauge observations and forecasts where available. Solid lines are observed readings; dashed lines are forecasts. The dated table shows N/A for forecast/future times and for missing sensor values until a valid observed reading is published. Height is shown in feet; flow is shown in cubic feet per second (CFS).</p>
 <div class="notice">Charts check for new NOAA data every 15 minutes and switch to the next Monday–Sunday week at 2:00 AM Pacific on Sunday. NOAA may not publish a forecast for every gauge or every hour; missing values are left blank. A gauge represents one location, not every fishing access point along the river.</div>
-<div class="actions"><button class="btn" id="flow-refresh" onclick="loadFlow(true)">Refresh river charts</button><span id="flow-meta">Loading NOAA river data…</span></div>
+<div class="actions"><button class="btn" id="flow-refresh" onclick="loadFlow(true)">Refresh river charts</button><button class="btn" id="ensemble-toggle" type="button" aria-expanded="false">More Informational Graph</button><span id="flow-meta">Loading NOAA river data…</span></div>
 <div class="flow-warning">These charts are informational, not a safety guarantee. Check official flood alerts and local conditions before entering or crossing a river.</div>
 <section class="flow-grid" id="flow-grid" aria-live="polite"></section>
+<section id="ensemble-view" class="ensemble-grid" hidden aria-label="NOAA ensemble river forecast graphs"></section>
 </section>
 <p class="footer">Sources: <a class="source" href="https://api.water.noaa.gov/nwps/v1/docs/" target="_blank" rel="noopener">NOAA National Water Prediction Service API</a> · <a class="source" href="https://wildlife.ca.gov/Fishing/Inland/Low-Flow/North-Coast" target="_blank" rel="noopener">CDFW North Coast Low-Flow rules</a></p>
 </main><script>
@@ -228,3 +229,48 @@ loadFlow();setInterval(()=>loadFlow(false),15*60*1000);
 </div>
 
 </body></html>
+<script>
+(function(){
+ const toggle=document.getElementById('ensemble-toggle');
+ const basic=document.getElementById('flow-grid');
+ const detailed=document.getElementById('ensemble-view');
+ if(!toggle||!basic||!detailed)return;
+ // CNRFC HEFS short-range peak exceedance products. Only stations with a
+ // known CNRFC ensemble product are listed; other gauge cards remain in the
+ // standard NOAA NWPS view rather than substituting a different river.
+ const products=[
+  {name:'Smith River — Jedediah Smith SP near Crescent City',id:'CREC1'},
+  {name:'Eel River — Scotia',id:'SCOC1'},
+  {name:'South Fork Eel River — Miranda',id:'MRNC1'},
+  {name:'Van Duzen River — Bridgeville',id:'BRGC1'},
+  {name:'Mad River — Arcata',id:'ARCC1'},
+  {name:'Redwood Creek — Orick',id:'ORIC1'},
+  {name:'Smith River — Fort Dick',id:'FTDC1'}
+ ];
+ const source=id=>'https://www.cnrfc.noaa.gov/ensembleProduct.php?id='+encodeURIComponent(id)+'&prodID=3';
+ let loaded=false;
+ function build(){
+  if(loaded)return;
+  detailed.innerHTML=products.map((p,i)=>'<article class="ensemble-card"><h3>'+p.name+'</h3><p>NOAA California-Nevada River Forecast Center · Ensemble peak exceedance forecast · Station '+p.id+'</p><a class="ensemble-link" href="'+source(p.id)+'" target="_blank" rel="noopener">Open this NOAA graph in a new tab ↗</a><iframe class="ensemble-frame" title="NOAA ensemble river forecast for '+p.name+'" src="'+source(p.id)+'" loading="'+(i<2?'eager':'lazy')+'" referrerpolicy="strict-origin-when-cross-origin"></iframe></article>').join('');
+  loaded=true;
+ }
+ toggle.addEventListener('click',function(){
+  const show=detailed.hidden;
+  if(show)build();
+  detailed.hidden=!show;
+  basic.hidden=show;
+  toggle.setAttribute('aria-expanded',String(show));
+  toggle.textContent=show?'Show Weekly River Height & Flow':'More Informational Graph';
+  if(show){detailed.querySelectorAll('iframe').forEach(frame=>{if(frame.dataset.loaded==='true')return;frame.dataset.loaded='true';});}
+ });
+ // Refresh embedded NOAA products on the same 15-minute cadence as the
+ // regular river graphs, without disturbing the normal weekly chart view.
+ setInterval(function(){
+  if(detailed.hidden)return;
+  detailed.querySelectorAll('iframe').forEach(frame=>{
+   const current=frame.getAttribute('src');
+   if(current)frame.setAttribute('src',current);
+  });
+ },15*60*1000);
+})();
+</script>
