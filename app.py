@@ -1253,12 +1253,21 @@ def _cnrfc_parse_product_page(html_text):
     issued = re.search(r"Issuance Time:\s*(.{0,80}?P[SD]T)", page, re.I)
     if issued:
         issuance = issued.group(1).strip()
+    site = {}
+    coordinates = re.search(r"Latitude:\s*([0-9.]+)º\s*([NS])\s*\|\s*Longitude:\s*([0-9.]+)º\s*([EW])\s*\|\s*Elevation:\s*([0-9.]+)\s*Feet", page, re.I)
+    if coordinates:
+        lat = float(coordinates.group(1)) * (-1 if coordinates.group(2).upper() == "S" else 1)
+        lon = float(coordinates.group(3)) * (-1 if coordinates.group(4).upper() == "W" else 1)
+        site = {"latitude": lat, "longitude": lon, "elevation_ft": float(coordinates.group(5))}
+    location = re.search(r"Location:\s*(.{3,100}?)\s*Bulletin Group:", page, re.I)
+    if location:
+        site["county"] = location.group(1).strip()
     impacts = []
     section = re.search(r"Flood Impacts\s+(.*?)(?:Follow us on|$)", page, re.I)
     if section:
         for item in re.finditer(r"([0-9]+(?:\.[0-9]+)?)\s*Feet\s*\|\s*(.*?)(?=(?:[0-9]+(?:\.[0-9]+)?\s*Feet\s*\|)|$)", section.group(1), re.I):
             impacts.append({"stage_ft": float(item.group(1)), "description": item.group(2).strip()})
-    return {"thresholds": thresholds, "issuance": issuance, "flood_impacts": impacts}
+    return {"thresholds": thresholds, "issuance": issuance, "site": site, "flood_impacts": impacts}
 
 def _cnrfc_parse_hourly_csv(csv_text):
     import csv
