@@ -235,152 +235,61 @@ loadFlow();setInterval(()=>loadFlow(false),15*60*1000);
  const basic=document.getElementById('flow-grid');
  const detailed=document.getElementById('ensemble-view');
  if(!toggle||!basic||!detailed)return;
-
  const refreshMs=15*60*1000;
- let loaded=false, checking=false, lastHashes={};
-
- function esc(s){
-   return String(s==null?'':s).replace(/[&<>"']/g,function(c){
-     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
-   });
- }
-
- function showMessage(message, className){
+ let loaded=false,checking=false,lastHashes={};
+ function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]});}
+ function render(stations){
    detailed.innerHTML='';
-   const note=document.createElement('p');
-   note.className=className||'ensemble-meta';
-   note.setAttribute('role','status');
-   note.textContent=message;
-   detailed.appendChild(note);
- }
-
- function render(stations, checkedAt){
-   detailed.innerHTML='';
-   if(!Array.isArray(stations)||stations.length===0){
-     showMessage('NOAA did not return any river informational graphs. Please try again.', 'flow-warning');
-     loaded=false;
-     return;
-   }
-
    stations.forEach(function(station){
      const card=document.createElement('article');
      card.className='ensemble-card cnrfc-native-card';
-     const heading=document.createElement('h3');
-     heading.textContent=station.name||station.id||'River gauge';
-     const description=document.createElement('p');
-     description.className='ensemble-meta';
-     description.textContent='Official NOAA CNRFC short-range peak exceedance product · '+(station.id||'');
-     card.appendChild(heading);
-     card.appendChild(description);
-
-     if(!station.ok||!station.hash){
-       const problem=document.createElement('p');
-       problem.className='flow-state';
-       problem.textContent='NOAA could not provide this station’s informational graph right now. Other river graphs can still load.';
-       card.appendChild(problem);
+     card.innerHTML='<h3>'+esc(station.name)+'</h3><p class="ensemble-meta">Official NOAA CNRFC short-range peak exceedance product · '+esc(station.id)+'</p>';
+     if(!station.ok){
+       card.insertAdjacentHTML('beforeend','<p class="flow-state">NOAA product could not be checked right now. Existing graphs have been left unchanged.</p>');
      }else{
        const frame=document.createElement('iframe');
        frame.className='cnrfc-native-frame';
-       frame.title='Official NOAA graph and information for '+(station.name||station.id);
+       frame.title='Official NOAA graph and information for '+station.name;
        frame.loading='lazy';
-       frame.src='/cnrfc/product/'+encodeURIComponent(station.id)+'?embed=1&v='+encodeURIComponent(station.hash);
-       frame.addEventListener('error',function(){
-         const note=document.createElement('p');
-         note.className='flow-state';
-         note.textContent='This NOAA graph could not be displayed. Please try refreshing the informational graphs.';
-         frame.replaceWith(note);
-       });
+       frame.src='/cnrfc/product/'+encodeURIComponent(station.id)+'?v='+encodeURIComponent(station.hash);
        card.appendChild(frame);
        lastHashes[station.id]=station.hash;
      }
      detailed.appendChild(card);
    });
-
-   const status=document.createElement('p');
-   status.className='ensemble-meta cnrfc-refresh-status';
-   status.setAttribute('aria-live','polite');
-   status.textContent='Official NOAA product checked: '+(checkedAt?new Date(checkedAt).toLocaleString():new Date().toLocaleString());
-   detailed.insertBefore(status,detailed.firstChild);
+   detailed.insertAdjacentHTML('afterbegin','<p class="ensemble-meta cnrfc-refresh-status" aria-live="polite">Official NOAA product checked: '+new Date().toLocaleString()+'</p>');
    loaded=true;
  }
-
  async function check(force){
    if(checking)return;
    checking=true;
-   detailed.setAttribute('aria-busy','true');
-   if(!loaded)showMessage('Loading the official NOAA informational graphs for each river…');
    try{
-     const response=await fetch('/api/cnrfc-product-status'+(force?'?refresh=1':''),{
-       cache:'no-store',
-       headers:{'Accept':'application/json'}
-     });
-     if(!response.ok)throw new Error('NOAA status request returned HTTP '+response.status);
+     const response=await fetch('/api/cnrfc-product-status'+(force?'?refresh=1':''),{cache:'no-store'});
+     if(!response.ok)throw new Error('NOAA status request failed');
      const data=await response.json();
-     if(!data||!Array.isArray(data.stations))throw new Error('The NOAA status response was incomplete.');
-     const stations=data.stations;
-     const changed=!loaded||stations.some(function(station){
-       return station.ok&&lastHashes[station.id]!==station.hash;
-     });
-     if(changed){
-       render(stations,data.updated);
-     }else{
+     const stations=data.stations||[];
+     const changed=!loaded||stations.some(function(x){return x.ok&&lastHashes[x.id]!==x.hash;});
+     if(changed)render(stations);
+     else{
        const status=detailed.querySelector('.cnrfc-refresh-status');
-       if(status)status.textContent='NOAA checked '+(data.updated?new Date(data.updated).toLocaleString():new Date().toLocaleString())+' · No new product data; graphs left unchanged.';
-     }
-     if(!stations.some(function(station){return station.ok;})){
-       const note=document.createElement('p');
-       note.className='flow-warning';
-       note.textContent='NOAA is temporarily unavailable for all listed stations. Use the retry button to check again.';
-       detailed.appendChild(note);
-       const retry=document.createElement('button');
-       retry.className='btn';
-       retry.type='button';
-       retry.textContent='Retry NOAA';
-       retry.addEventListener('click',function(){check(true);});
-       detailed.appendChild(retry);
+       if(status)status.textContent='NOAA checked '+new Date(data.updated).toLocaleString()+' · No new product data; graphs left unchanged.';
      }
    }catch(error){
-     if(!loaded)detailed.innerHTML='';
-     const note=document.createElement('p');
-     note.className='flow-warning';
-     note.setAttribute('role','alert');
-     note.textContent='The official NOAA informational graphs could not be reached right now. Your Rivers page is still available; please retry.';
-     detailed.appendChild(note);
-     const retry=document.createElement('button');
-     retry.className='btn';
-     retry.type='button';
-     retry.textContent='Retry NOAA';
-     retry.addEventListener('click',function(){check(true);});
-     detailed.appendChild(retry);
-     console.error('More Informational Graph:',error);
-   }finally{
-     checking=false;
-     detailed.removeAttribute('aria-busy');
-   }
+     const status=detailed.querySelector('.cnrfc-refresh-status');
+     if(status)status.textContent='Could not check NOAA. Existing graphs have been left unchanged.';
+     if(!loaded)detailed.innerHTML='<p class="flow-warning">Could not load the official NOAA product pages. Please retry.</p><button class="btn" id="cnrfc-retry" type="button">Retry NOAA</button>';
+     const retry=detailed.querySelector('#cnrfc-retry');
+     if(retry)retry.addEventListener('click',function(){check(true);});
+   }finally{checking=false;}
  }
-
- const params=new URLSearchParams(window.location.search);
- if(params.get('show_informational_graph')==='1'){
-   detailed.hidden=false;
-   basic.hidden=true;
-   toggle.setAttribute('aria-expanded','true');
-   toggle.textContent='Show Weekly River Height & Flow';
-   check(false);
-   window.history.replaceState({},document.title,window.location.pathname);
- }
-
  toggle.addEventListener('click',function(){
    const show=detailed.hidden;
-   detailed.hidden=!show;
-   basic.hidden=show;
+   detailed.hidden=!show;basic.hidden=show;
    toggle.setAttribute('aria-expanded',String(show));
    toggle.textContent=show?'Show Weekly River Height & Flow':'More Informational Graph';
-   if(show&&!loaded)check(false);
+   if(show)check(false);
  });
-
- setInterval(function(){
-   if(!detailed.hidden)check(true);
- },refreshMs);
+ setInterval(function(){if(!detailed.hidden)check(true);},refreshMs);
 })();
 </script>
 </body></html>
