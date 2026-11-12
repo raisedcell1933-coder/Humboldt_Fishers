@@ -1442,8 +1442,8 @@ def cnrfc_product_proxy(station_id):
         viewport = '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'
         mobile_fit = r"""
 <style id="fish-humboldt-mobile-fit">
-html,body{max-width:100%!important;overflow-x:hidden!important}
-body{transform-origin:top left!important}
+html{max-width:100%!important;overflow-x:hidden!important}
+body{transform-origin:top left!important;overflow:visible!important;max-width:none!important}
 img,svg,canvas,video{max-width:100%!important}
 </style>
 <script>
@@ -1452,25 +1452,28 @@ img,svg,canvas,video{max-width:100%!important}
     var doc=document.documentElement, body=document.body;
     if(!doc||!body)return;
     body.style.transform='none';
-    body.style.width='';
+    body.style.width='max-content';
+    body.style.maxWidth='none';
     var width=Math.max(doc.scrollWidth||0,body.scrollWidth||0,doc.clientWidth||0);
-    Array.prototype.forEach.call(body.children,function(el){
+    var nodes=body.querySelectorAll('*');
+    for(var i=0;i<nodes.length;i++){
+      var el=nodes[i];
+      width=Math.max(width,el.scrollWidth||0);
       var rect=el.getBoundingClientRect();
-      width=Math.max(width,rect.right+(window.pageXOffset||0));
-    });
+      if(rect.width>0)width=Math.max(width,rect.right+(window.pageXOffset||0));
+    }
     var available=doc.clientWidth||window.innerWidth||0;
     if(!available||!width)return;
     var scale=Math.min(1,available/width);
-    if(scale<0.995){
-      body.style.width=width+'px';
-      body.style.transform='scale('+scale+')';
-    }
+    body.style.width=width+'px';
+    body.style.transform='scale('+scale+')';
   }
   function scheduleFit(){
     fitNoaaContent();
     setTimeout(fitNoaaContent,250);
     setTimeout(fitNoaaContent,900);
     setTimeout(fitNoaaContent,1800);
+    setTimeout(fitNoaaContent,3500);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',scheduleFit);
   else scheduleFit();
