@@ -251,7 +251,7 @@ loadFlow();setInterval(()=>loadFlow(false),15*60*1000);
        frame.className='cnrfc-native-frame';
        frame.title='Official NOAA graph and information for '+station.name;
        frame.loading='lazy';
-       frame.src='/cnrfc/product/'+encodeURIComponent(station.id)+'?v='+encodeURIComponent(station.hash);
+       frame.src='https://www.cnrfc.noaa.gov/ensembleProduct.php?id='+encodeURIComponent(station.id)+'&prodID=3';
        card.appendChild(frame);
        lastHashes[station.id]=station.hash;
      }
