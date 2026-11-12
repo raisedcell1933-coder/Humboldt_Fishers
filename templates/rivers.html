@@ -35,7 +35,7 @@ main{max-width:1120px;margin:auto;padding:30px 22px}
 .flow-section{margin-top:34px}.flow-section h2{color:#173644;font-size:28px;margin:0 0 8px}.flow-intro{color:#62737c;margin:0 0 16px}.flow-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:16px}.flow-card{min-width:0;background:#fff;border:1px solid #dce6eb;border-radius:13px;padding:16px;box-shadow:0 8px 26px rgba(25,57,72,.04)}.flow-card h3{margin:0 0 3px;color:#183847;font-size:19px}.station{font-size:13px;color:#71828a;margin-bottom:12px}.flow-state{font-size:13px;color:#536a75;margin:8px 0 12px}.chart-wrap{position:relative;height:210px;margin:12px 0 18px}.chart-title{font-size:14px;font-weight:700;color:#284d5c;margin-top:12px}.flow-card a{font-size:13px}.flow-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}.flow-table th,.flow-table td{text-align:left;padding:6px;border-bottom:1px solid #e8eef1}.flow-table-wrap{max-height:230px;overflow:auto}.flow-card details{margin-top:10px}.flow-card summary{cursor:pointer;color:#238fca;font-weight:700;font-size:13px}.flow-warning{background:#fff8e9;border:1px solid #f1dfb5;color:#735a20;border-radius:8px;padding:12px;margin:14px 0;font-size:13px}
 a{color:#238fca}
 @media(max-width:650px){.topbar{padding:14px 16px;align-items:flex-start;flex-direction:column}.site-nav{gap:13px}.site-nav a{font-size:13px}main{padding:24px 14px}}
-[hidden]{display:none!important}.ensemble-controls{display:flex;align-items:center;gap:8px;margin:8px 0}.ensemble-range{border:1px solid #b9c8d0;background:#fff;color:#294454;border-radius:5px;padding:6px 12px;cursor:pointer}.ensemble-range.active{background:#174f70;color:#fff;border-color:#174f70}.ensemble-chart-wrap{position:relative;height:300px;margin:12px 0 18px}.ensemble-meta{font-size:13px;color:#62737c;margin:5px 0 12px}.ensemble-grid{display:grid;grid-template-columns:1fr;gap:18px;margin-top:18px}.ensemble-card{min-width:0;background:#fff;border:1px solid #dce6eb;border-radius:13px;padding:14px;box-shadow:0 8px 26px rgba(25,57,72,.04)}.ensemble-card h3{margin:0 0 4px;color:#183847;font-size:19px}.ensemble-card p{margin:4px 0 10px;color:#62737c;font-size:13px}.ensemble-frame{display:block;width:100%;height:900px;border:1px solid #dce6eb;border-radius:8px;background:#fff}.ensemble-link{display:inline-block;margin:0 0 10px;font-weight:700}@media(max-width:650px){.ensemble-frame{height:760px}}</style><style>
+[hidden]{display:none!important}.ensemble-controls{display:flex;align-items:center;gap:8px;margin:8px 0}.ensemble-range{border:1px solid #b9c8d0;background:#fff;color:#294454;border-radius:5px;padding:6px 12px;cursor:pointer}.ensemble-range.active{background:#174f70;color:#fff;border-color:#174f70}.ensemble-chart-wrap{position:relative;height:300px;margin:12px 0 18px}.ensemble-meta{font-size:13px;color:#62737c;margin:5px 0 12px}.ensemble-grid{display:grid;grid-template-columns:1fr;gap:18px;margin-top:18px}.ensemble-card{min-width:0;background:#fff;border:1px solid #dce6eb;border-radius:13px;padding:14px;box-shadow:0 8px 26px rgba(25,57,72,.04)}.ensemble-card h3{margin:0 0 4px;color:#183847;font-size:19px}.ensemble-card p{margin:4px 0 10px;color:#62737c;font-size:13px}.ensemble-frame{display:block;width:100%;height:900px;border:1px solid #dce6eb;border-radius:8px;background:#fff}.ensemble-link{display:inline-block;margin:0 0 10px;font-weight:700}@media(max-width:650px){.ensemble-frame{height:760px}}.cnrfc-native-card{padding:0!important;overflow:hidden}.cnrfc-native-card>h3,.cnrfc-native-card>.ensemble-meta{margin-left:14px;margin-right:14px}.cnrfc-native-frame{display:block;width:100%;height:1180px;border:0;background:#fff}@media(max-width:700px){.cnrfc-native-frame{height:1450px}}</style><style>
 /* Compact top-right hamburger with a right-side slide-out navigation drawer */
 .topbar{position:sticky!important;top:0!important;z-index:10000!important;display:flex!important;align-items:center!important;justify-content:space-between!important;min-height:58px!important;height:auto!important;flex-direction:row!important;flex-wrap:nowrap!important;padding:10px 18px!important;gap:12px!important}
 .menu-toggle{display:flex!important;align-items:center!important;justify-content:center!important;position:fixed!important;top:8px!important;right:12px!important;z-index:10003!important;width:42px!important;height:42px!important;padding:0!important;margin:0!important;border:1px solid rgba(100,150,170,.35)!important;border-radius:9px!important;background:#071725!important;color:#fff!important;font-size:25px!important;line-height:1!important;cursor:pointer!important;box-shadow:0 3px 12px rgba(0,0,0,.18)!important}
@@ -218,6 +218,7 @@ loadFlow();setInterval(()=>loadFlow(false),15*60*1000);
 .hf-account-btn:hover{background:#12415b}
 .hf-account-email{max-width:180px;overflow:hidden;text-overflow:ellipsis;color:#e8f5fb;font:12px Arial,sans-serif}
 @media(max-width:520px){.hf-account-email{display:none}.hf-account-btn{padding:0 10px;font-size:12px}}
+.cnrfc-thresholds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0}.cnrfc-threshold{border:1px solid #d8e2e8;border-radius:8px;padding:9px;background:#f7fafc;display:flex;flex-direction:column;gap:4px}.cnrfc-threshold span{font-size:12px;color:#526573}.cnrfc-threshold strong{font-size:16px;color:#18394c}.cnrfc-impacts{margin:10px 0 14px}.cnrfc-impacts summary{cursor:pointer;font-weight:700;color:#24546c;padding:7px 0}@media(max-width:600px){.cnrfc-thresholds{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 <div class="hf-account-control">
 {% if current_google_user %}
@@ -234,93 +235,61 @@ loadFlow();setInterval(()=>loadFlow(false),15*60*1000);
  const basic=document.getElementById('flow-grid');
  const detailed=document.getElementById('ensemble-view');
  if(!toggle||!basic||!detailed)return;
- let loaded=false, loading=false, charts=[], currentDays=5, lastPayload=null;
  const refreshMs=15*60*1000;
+ let loaded=false,checking=false,lastHashes={};
  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]});}
- function destroyCharts(){charts.forEach(function(c){c.destroy();});charts=[];}
- function renderGauge(g,index){
-  const card=document.createElement('article');card.className='ensemble-card';
-  card.innerHTML='<h3>'+esc(g.name)+'</h3><p class="ensemble-meta">NOAA CNRFC · Short-range HEFS hourly ensemble · '+esc(g.id)+'</p>';
-  if(!g.ok||!Array.isArray(g.points)||!g.points.length){
-   card.insertAdjacentHTML('beforeend','<p class="flow-state">NOAA has not returned a usable ensemble forecast for this station. No substitute data are shown.</p><a class="ensemble-link" href="'+esc(g.source)+'" target="_blank" rel="noopener">Open official NOAA station page ↗</a>');
-   detailed.appendChild(card);return;
-  }
-  const points=g.points;
-  const shown=points.slice(0,currentDays*24);
-  const labels=shown.map(function(p){return new Date(p.time).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric'});});
-  const traceSets=(g.traces||[]).map(function(trace,i){
-   return {label:'Model traces',data:shown.map(function(p){return p.trace_values&&i<p.trace_values.length?p.trace_values[i]:null;}),borderColor:'rgba(105,130,145,.22)',borderWidth:1,pointRadius:0,fill:false,tension:0,order:2};
-  });
-  const lower={label:'Ensemble lower range (10th percentile)',data:shown.map(function(p){return p.p10;}),borderColor:'rgba(75,140,175,.45)',backgroundColor:'rgba(75,140,175,.12)',borderWidth:1,pointRadius:0,fill:false,order:1};
-  const upper={label:'Ensemble upper range (90th percentile)',data:shown.map(function(p){return p.p90;}),borderColor:'rgba(75,140,175,.45)',backgroundColor:'rgba(75,140,175,.12)',borderWidth:1,pointRadius:0,fill:'-1',order:1};
-  const mean={label:'Ensemble mean',data:shown.map(function(p){return p.mean;}),borderColor:'#145d86',backgroundColor:'#145d86',borderWidth:2.5,pointRadius:0,fill:false,tension:0,order:0};
-  card.insertAdjacentHTML('beforeend',
-   '<div class="ensemble-controls"><button type="button" class="ensemble-range '+(currentDays===5?'active':'')+'" data-days="5">5 Days</button><button type="button" class="ensemble-range '+(currentDays===10?'active':'')+'" data-days="10">10 Days</button><span class="ensemble-meta">Forecast horizon</span></div>'+
-   '<div class="ensemble-chart-wrap"><canvas id="cnrfc-chart-'+index+'" aria-label="'+esc(g.name)+' NOAA CNRFC ensemble forecast"></canvas></div>'+
-   '<p class="ensemble-meta">Hourly flow forecast · CFS · Forecast issued from the official NOAA CNRFC HEFS file. Thin lines are individual model traces; the bold line is the ensemble mean; the shaded envelope is the 10th–90th percentile spread.</p>'+
-   '<details><summary>View hourly NOAA ensemble values</summary><div class="flow-table-wrap"><table class="flow-table"><thead><tr><th>Valid time</th><th>Ensemble mean</th><th>10th percentile</th><th>50th percentile</th><th>90th percentile</th><th>Members</th></tr></thead><tbody>'+
-   shown.map(function(p){return '<tr><td>'+esc(new Date(p.time).toLocaleString())+'</td><td>'+Number(p.mean).toLocaleString()+'</td><td>'+Number(p.p10).toLocaleString()+'</td><td>'+Number(p.p50).toLocaleString()+'</td><td>'+Number(p.p90).toLocaleString()+'</td><td>'+esc(p.members)+'</td></tr>';}).join('')+
-   '</tbody></table></div></details><a class="ensemble-link" href="'+esc(g.source)+'" target="_blank" rel="noopener">Open official NOAA source ↗</a>');
-  const datasets=traceSets.concat([lower,upper,mean]);
-  const chart=new Chart(card.querySelector('canvas'),{type:'line',data:{labels:labels,datasets:datasets},options:{
-   responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
-   plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:9,filter:function(item,data){return item.datasetIndex>=traceSets.length-3;}}},tooltip:{callbacks:{label:function(c){return c.dataset.label+': '+Number(c.parsed.y).toLocaleString()+' CFS';}}}},
-   scales:{x:{grid:{color:'rgba(120,140,150,.12)'},ticks:{maxTicksLimit:9,maxRotation:0},title:{display:true,text:'Forecast valid time'}},y:{beginAtZero:true,grid:{color:'rgba(120,140,150,.15)'},title:{display:true,text:'Flow (CFS)'}}}
-  }});
-  charts.push({chart:chart,gauge:g,index:index});
-  card.querySelectorAll('.ensemble-range').forEach(function(button){button.addEventListener('click',function(){
-   currentDays=Number(button.dataset.days);
-   card.querySelectorAll('.ensemble-range').forEach(function(b){b.classList.toggle('active',b===button);});
-   const n=points.slice(0,currentDays*24);
-   chart.data.labels=n.map(function(p){return new Date(p.time).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric'});});
-   chart.data.datasets.forEach(function(ds,di){
-    if(di<traceSets.length)ds.data=n.map(function(p){return p.trace_values&&di<p.trace_values.length?p.trace_values[di]:null;});
-    else if(di===traceSets.length)ds.data=n.map(function(p){return p.p10;});
-    else if(di===traceSets.length+1)ds.data=n.map(function(p){return p.p90;});
-    else ds.data=n.map(function(p){return p.mean;});
+ function render(stations){
+   detailed.innerHTML='';
+   stations.forEach(function(station){
+     const card=document.createElement('article');
+     card.className='ensemble-card cnrfc-native-card';
+     card.innerHTML='<h3>'+esc(station.name)+'</h3><p class="ensemble-meta">Official NOAA CNRFC short-range peak exceedance product · '+esc(station.id)+'</p>';
+     if(!station.ok){
+       card.insertAdjacentHTML('beforeend','<p class="flow-state">NOAA product could not be checked right now. Existing graphs have been left unchanged.</p>');
+     }else{
+       const frame=document.createElement('iframe');
+       frame.className='cnrfc-native-frame';
+       frame.title='Official NOAA graph and information for '+station.name;
+       frame.loading='lazy';
+       frame.src='/cnrfc/product/'+encodeURIComponent(station.id)+'?v='+encodeURIComponent(station.hash);
+       card.appendChild(frame);
+       lastHashes[station.id]=station.hash;
+     }
+     detailed.appendChild(card);
    });
-   chart.update();
-  });});
-  detailed.appendChild(card);
+   detailed.insertAdjacentHTML('afterbegin','<p class="ensemble-meta cnrfc-refresh-status" aria-live="polite">Official NOAA product checked: '+new Date().toLocaleString()+'</p>');
+   loaded=true;
  }
- function render(payload){
-  lastPayload=payload;destroyCharts();detailed.innerHTML='';
-  (payload.gauges||[]).forEach(renderGauge);
-  ['Mattole River','Mendocino Coast Streams'].forEach(function(name){
-   const card=document.createElement('article');card.className='ensemble-card';
-   card.innerHTML='<h3>'+esc(name)+'</h3><p class="flow-state">No verified matching CNRFC HEFS station is available for this river group. No estimated graph is substituted.</p>';
-   detailed.appendChild(card);
-  });
-  const loadedCount=(payload.gauges||[]).filter(function(g){return g.ok;}).length;
-  detailed.insertAdjacentHTML('afterbegin','<p class="flow-warning">Live source: NOAA CNRFC HEFS hourly ensemble CSV. Last successful retrieval: '+esc(new Date(payload.updated).toLocaleString())+'. '+loadedCount+' of '+(payload.gauges||[]).length+' station files loaded. The ensemble mean and model traces are NOAA forecast data. The 10th–90th percentile envelope summarizes model spread; it is not the same as NOAA’s threshold exceedance probability bands.</p>');
-  loaded=true;
- }
- async function build(force){
-  if(loading)return;
-  if(loaded&&!force)return;
-  loading=true;
-  if(!loaded)detailed.innerHTML='<p class="flow-state">Loading official NOAA CNRFC forecast data…</p>';
-  try{
-   const response=await fetch('/api/cnrfc-ensemble'+(force?'?refresh=1':''),{cache:'no-store'});
-   const data=await response.json();
-   if(!response.ok)throw new Error(data.error||'NOAA data request failed');
-   render(data);
-  }catch(error){
-   if(!loaded)detailed.innerHTML='<p class="flow-warning">Official NOAA CNRFC data could not be loaded. No estimated graph is shown.</p><button class="btn" type="button" id="cnrfc-retry">Retry NOAA data</button>';
-   const retry=detailed.querySelector('#cnrfc-retry');
-   if(retry)retry.addEventListener('click',function(){build(true);});
-  }finally{loading=false;}
+ async function check(force){
+   if(checking)return;
+   checking=true;
+   try{
+     const response=await fetch('/api/cnrfc-product-status'+(force?'?refresh=1':''),{cache:'no-store'});
+     if(!response.ok)throw new Error('NOAA status request failed');
+     const data=await response.json();
+     const stations=data.stations||[];
+     const changed=!loaded||stations.some(function(x){return x.ok&&lastHashes[x.id]!==x.hash;});
+     if(changed)render(stations);
+     else{
+       const status=detailed.querySelector('.cnrfc-refresh-status');
+       if(status)status.textContent='NOAA checked '+new Date(data.updated).toLocaleString()+' · No new product data; graphs left unchanged.';
+     }
+   }catch(error){
+     const status=detailed.querySelector('.cnrfc-refresh-status');
+     if(status)status.textContent='Could not check NOAA. Existing graphs have been left unchanged.';
+     if(!loaded)detailed.innerHTML='<p class="flow-warning">Could not load the official NOAA product pages. Please retry.</p><button class="btn" id="cnrfc-retry" type="button">Retry NOAA</button>';
+     const retry=detailed.querySelector('#cnrfc-retry');
+     if(retry)retry.addEventListener('click',function(){check(true);});
+   }finally{checking=false;}
  }
  toggle.addEventListener('click',function(){
-  const show=detailed.hidden;
-  detailed.hidden=!show;basic.hidden=show;
-  toggle.setAttribute('aria-expanded',String(show));
-  toggle.textContent=show?'Show Weekly River Height & Flow':'More Informational Graph';
-  if(show)build(false);
+   const show=detailed.hidden;
+   detailed.hidden=!show;basic.hidden=show;
+   toggle.setAttribute('aria-expanded',String(show));
+   toggle.textContent=show?'Show Weekly River Height & Flow':'More Informational Graph';
+   if(show)check(false);
  });
- setInterval(function(){
-  if(!detailed.hidden)build(true);
- },refreshMs);
+ setInterval(function(){if(!detailed.hidden)check(true);},refreshMs);
 })();
 </script>
 </body></html>
