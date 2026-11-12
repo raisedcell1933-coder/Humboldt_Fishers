@@ -1337,7 +1337,7 @@ def cnrfc_ensemble_api():
                 return jsonify(cached["data"])
         def fetch_station(station):
             url = "https://www.cnrfc.noaa.gov/csv/" + station["id"] + "_hefs_csv_hourly.csv"
-            product_url = "https://www.cnrfc.noaa.gov/ensembleProduct.php?id=" + station["id"] + "&prodID=3"
+            product_url = "https://www.cnrfc.noaa.gov/mobile/ensembleImage.php?id=" + station["id"] + "&prodID=3"
             metadata = {"thresholds": {}, "issuance": None, "flood_impacts": []}
             try:
                 page_response = requests.get(product_url, timeout=20, headers={
@@ -1435,7 +1435,7 @@ def cnrfc_product_proxy(station_id):
     try:
         item = _cnrfc_fetch_native_page(station_id, request.args.get("refresh") == "1")
         page = item["html"]
-        base = '<base href="https://www.cnrfc.noaa.gov/">'
+        base = '<base href="https://www.cnrfc.noaa.gov/mobile/">'
         page = re.sub(r"(<head\b[^>]*>)", lambda m:m.group(1)+base, page, count=1, flags=re.I)
         return Response(page, content_type="text/html; charset=utf-8",
                         headers={"Cache-Control":"no-store"})
