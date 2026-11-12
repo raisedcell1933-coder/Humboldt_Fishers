@@ -235,7 +235,7 @@ loadFlow();setInterval(()=>loadFlow(false),15*60*1000);
  const basic=document.getElementById('flow-grid');
  const detailed=document.getElementById('ensemble-view');
  if(!toggle||!basic||!detailed)return;
- let loaded=false, loading=false, charts=[], currentDays=5, lastPayload=null;
+ let loaded=false, loading=false, charts=[], currentDays=5, lastPayload=null, lastDataFingerprint=null;
  const refreshMs=15*60*1000;
  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]});}
  function destroyCharts(){charts.forEach(function(c){c.chart.destroy();});charts=[];}
@@ -299,8 +299,9 @@ loadFlow();setInterval(()=>loadFlow(false),15*60*1000);
    chart.update();
   });});
  }
+ function dataFingerprint(payload){return JSON.stringify((payload.gauges||[]).map(function(g){return {id:g.id,ok:g.ok,name:g.name,issuance:g.issuance,site:g.site,thresholds:g.thresholds,flood_impacts:g.flood_impacts,points:g.points,traces:g.traces,error:g.error};}));}
  function render(payload){
-  lastPayload=payload;destroyCharts();detailed.innerHTML='';
+  lastPayload=payload;lastDataFingerprint=dataFingerprint(payload);destroyCharts();detailed.innerHTML='';
   (payload.gauges||[]).forEach(renderGauge);
   ['Mattole River','Mendocino Coast Streams'].forEach(function(name){
    const card=document.createElement('article');card.className='ensemble-card';
@@ -308,7 +309,7 @@ loadFlow();setInterval(()=>loadFlow(false),15*60*1000);
    detailed.appendChild(card);
   });
   const loadedCount=(payload.gauges||[]).filter(function(g){return g.ok;}).length;
-  detailed.insertAdjacentHTML('afterbegin','<p class="flow-warning">Live source: NOAA CNRFC HEFS hourly ensemble CSV. Last successful retrieval: '+esc(new Date(payload.updated).toLocaleString())+'. '+loadedCount+' of '+(payload.gauges||[]).length+' station files loaded. The ensemble mean and model traces are NOAA forecast data. The 10th–90th percentile envelope summarizes model spread; it is not the same as NOAA’s threshold exceedance probability bands.</p>');
+  detailed.insertAdjacentHTML('afterbegin','<p class="flow-warning">Live source: NOAA CNRFC HEFS hourly ensemble CSV. Last successful retrieval: '+esc(new Date(payload.updated).toLocaleString())+'. '+loadedCount+' of '+(payload.gauges||[]).length+' station files loaded. The ensemble mean and model traces are NOAA forecast data. The 10th–90th percentile envelope summarizes model spread; it is not the same as NOAA’s threshold exceedance probability bands.</p><p class="ensemble-meta cnrfc-refresh-status" aria-live="polite">Checked NOAA: '+esc(new Date(payload.updated).toLocaleString())+'</p>');
   loaded=true;
  }
  async function build(force){
@@ -320,7 +321,9 @@ loadFlow();setInterval(()=>loadFlow(false),15*60*1000);
    const response=await fetch('/api/cnrfc-ensemble'+(force?'?refresh=1':''),{cache:'no-store'});
    const data=await response.json();
    if(!response.ok)throw new Error(data.error||'NOAA data request failed');
-   render(data);
+   const fingerprint=dataFingerprint(data);
+   if(!loaded||fingerprint!==lastDataFingerprint){render(data);}
+   else{lastPayload=data;const status=detailed.querySelector('.cnrfc-refresh-status');if(status)status.textContent='Checked NOAA: '+new Date(data.updated).toLocaleString()+' · No new forecast data; graph unchanged.';}
   }catch(error){
    if(!loaded)detailed.innerHTML='<p class="flow-warning">Official NOAA CNRFC data could not be loaded. No estimated graph is shown.</p><button class="btn" type="button" id="cnrfc-retry">Retry NOAA data</button>';
    const retry=detailed.querySelector('#cnrfc-retry');
