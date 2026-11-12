@@ -237,7 +237,7 @@ loadFlow();setInterval(()=>loadFlow(false),15*60*1000);
  let loaded=false, loading=false, charts=[], currentDays=5, lastPayload=null;
  const refreshMs=15*60*1000;
  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]});}
- function destroyCharts(){charts.forEach(function(c){c.destroy();});charts=[];}
+ function destroyCharts(){charts.forEach(function(c){c.chart.destroy();});charts=[];}
  function renderGauge(g,index){
   const card=document.createElement('article');card.className='ensemble-card';
   card.innerHTML='<h3>'+esc(g.name)+'</h3><p class="ensemble-meta">NOAA CNRFC · Short-range HEFS hourly ensemble · '+esc(g.id)+'</p>';
@@ -261,6 +261,7 @@ loadFlow();setInterval(()=>loadFlow(false),15*60*1000);
    '<details><summary>View hourly NOAA ensemble values</summary><div class="flow-table-wrap"><table class="flow-table"><thead><tr><th>Valid time</th><th>Ensemble mean</th><th>10th percentile</th><th>50th percentile</th><th>90th percentile</th><th>Members</th></tr></thead><tbody>'+
    shown.map(function(p){return '<tr><td>'+esc(new Date(p.time).toLocaleString())+'</td><td>'+Number(p.mean).toLocaleString()+'</td><td>'+Number(p.p10).toLocaleString()+'</td><td>'+Number(p.p50).toLocaleString()+'</td><td>'+Number(p.p90).toLocaleString()+'</td><td>'+esc(p.members)+'</td></tr>';}).join('')+
    '</tbody></table></div></details><a class="ensemble-link" href="'+esc(g.source)+'" target="_blank" rel="noopener">Open official NOAA source ↗</a>');
+  detailed.appendChild(card);
   const datasets=traceSets.concat([lower,upper,mean]);
   const chart=new Chart(card.querySelector('canvas'),{type:'line',data:{labels:labels,datasets:datasets},options:{
    responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
@@ -281,7 +282,6 @@ loadFlow();setInterval(()=>loadFlow(false),15*60*1000);
    });
    chart.update();
   });});
-  detailed.appendChild(card);
  }
  function render(payload){
   lastPayload=payload;destroyCharts();detailed.innerHTML='';
