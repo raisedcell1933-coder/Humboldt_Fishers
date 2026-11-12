@@ -1479,9 +1479,9 @@ img,svg,canvas,video{max-width:100%!important}
 })();
 </script>
 """
+        # Remove any original viewport tag first, then install one reliable mobile viewport.
+        page = re.sub(r"""<meta\b[^>]*name=["']viewport["'][^>]*>""", "", page, flags=re.I)
         page = re.sub(r"(<head\b[^>]*>)", lambda m:m.group(1)+base+viewport+mobile_fit, page, count=1, flags=re.I)
-        # Replace NOAA's desktop-only viewport declaration if it appears later.
-        page = re.sub(r'<meta[^>]+name=["\\']viewport["\\'][^>]*>', viewport, page, count=1, flags=re.I) if page.count(viewport)==0 else page
         return Response(page, content_type="text/html; charset=utf-8",
                         headers={"Cache-Control":"no-store"})
     except Exception:
