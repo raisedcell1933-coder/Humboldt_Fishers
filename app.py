@@ -1235,6 +1235,31 @@ def _cnrfc_percentile(values, pct):
     fraction = pos - low
     return ordered[low] * (1 - fraction) + ordered[high] * fraction
 
+def _cnrfc_parse_product_page(html_text):
+    """Extract station-specific issuance, flood thresholds and impacts from the official CNRFC product page."""
+    import html
+    page = html.unescape(re.sub(r"<script\\b[^>]*>.*?</script>|<style\\b[^>]*>.*?</style>", " ", html_text or "", flags=re.I | re.S))
+    page = re.sub(r"<[^>]+>", " ", page)
+    page = re.sub(r"\\s+", " ", page).strip()
+    thresholds = {}
+    match = re.search(
+        r"Action:\\s*(N/A|[0-9.]+)\\s*Feet\\s*\\|\\s*Minor Flood:\\s*(N/A|[0-9.]+)\\s*Feet\\s*\\|\\s*Moderate Flood:\\s*(N/A|[0-9.]+)\\s*Feet\\s*\\|\\s*Major Flood:\\s*(N/A|[0-9.]+)\\s*Feet",
+        page, re.I
+    )
+    if match:
+        for key, value in zip(("action", "minor", "moderate", "major"), match.groups()):
+            thresholds[key] = float(value) if value.upper() != "N/A" else None
+    issuance = None
+    issued = re.search(r"Issuance Time:\\s*(.{0,80}?P[SD]T)", page, re.I)
+    if issued:
+        issuance = issued.group(1).strip()
+    impacts = []
+    section = re.search(r"Flood Impacts\\s+(.*?)(?:Follow us on|$)", page, re.I)
+    if section:
+        for item in re.finditer(r"([0-9]+(?:\\.[0-9]+)?)\\s*Feet\\s*\\|\\s*(.*?)(?=(?:[0-9]+(?:\\.[0-9]+)?\\s*Feet\\s*\\|)|$)", section.group(1), re.I):
+            impacts.append({"stage_ft": float(item.group(1)), "description": item.group(2).strip()})
+    return {"thresholds": thresholds, "issuance": issuance, "flood_impacts": impacts}
+
 def _cnrfc_parse_hourly_csv(csv_text):
     import csv
     import io
@@ -1303,18 +1328,28 @@ def cnrfc_ensemble_api():
                 return jsonify(cached["data"])
         def fetch_station(station):
             url = "https://www.cnrfc.noaa.gov/csv/" + station["id"] + "_hefs_csv_hourly.csv"
+            product_url = "https://www.cnrfc.noaa.gov/ensembleProduct.php?id=" + station["id"] + "&prodID=3"
+            metadata = {"thresholds": {}, "issuance": None, "flood_impacts": []}
+            try:
+                page_response = requests.get(product_url, timeout=20, headers={
+                    "User-Agent": "HumboldtFishers/1.0 (NOAA CNRFC station details)"
+                })
+                page_response.raise_for_status()
+                metadata = _cnrfc_parse_product_page(page_response.text)
+            except Exception as page_exc:
+                app.logger.warning("CNRFC product details unavailable for %s: %s", station["id"], page_exc)
             try:
                 response = requests.get(url, timeout=25, headers={
                     "User-Agent": "HumboldtFishers/1.0 (NOAA CNRFC HEFS data display)"
                 })
                 response.raise_for_status()
                 parsed = _cnrfc_parse_hourly_csv(response.text)
-                return {**station, "ok": True, **parsed, "source": url}
+                return {**station, **metadata, "ok": True, **parsed, "source": url, "product_url": product_url}
             except Exception as exc:
                 app.logger.warning("CNRFC HEFS data unavailable for %s: %s", station["id"], exc)
-                return {**station, "ok": False, "points": [],
+                return {**station, **metadata, "ok": False, "points": [],
                         "error": "NOAA has not returned a usable hourly ensemble CSV for this station.",
-                        "source": url}
+                        "source": url, "product_url": product_url}
         results = {}
         with ThreadPoolExecutor(max_workers=8) as pool:
             futures = [pool.submit(fetch_station, s) for s in _CNRFC_ENSEMBLE_STATIONS]
