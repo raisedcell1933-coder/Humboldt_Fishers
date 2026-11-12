@@ -1395,7 +1395,7 @@ def _cnrfc_fetch_native_page(station_id, force=False):
     cached = _CNRFC_PRODUCT_PAGE_CACHE.get(station_id)
     if cached and not force and time.time() - cached["fetched"] < _CNRFC_PRODUCT_PAGE_TTL:
         return cached
-    url = "https://www.cnrfc.noaa.gov/mobile/ensembleImage.php?id=" + station_id + "&type=3"
+    url = "https://www.cnrfc.noaa.gov/ensembleProduct.php?id=" + station_id + "&type=3"
     response = requests.get(url, timeout=25, headers={"User-Agent":"Mozilla/5.0 (compatible; HumboldtFishers/1.0)"})
     response.raise_for_status()
     body = response.text
@@ -1435,7 +1435,7 @@ def cnrfc_product_proxy(station_id):
     try:
         item = _cnrfc_fetch_native_page(station_id, request.args.get("refresh") == "1")
         page = item["html"]
-        base = '<base href="https://www.cnrfc.noaa.gov/mobile/">'
+        base = '<base href="https://www.cnrfc.noaa.gov/">'
         page = re.sub(r"(<head\b[^>]*>)", lambda m:m.group(1)+base, page, count=1, flags=re.I)
         return Response(page, content_type="text/html; charset=utf-8",
                         headers={"Cache-Control":"no-store"})
