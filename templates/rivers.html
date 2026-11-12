@@ -242,6 +242,12 @@ loadFlow();setInterval(()=>loadFlow(false),15*60*1000);
  function renderGauge(g,index){
   const card=document.createElement('article');card.className='ensemble-card';
   card.innerHTML='<h3>'+esc(g.name)+'</h3><p class="ensemble-meta">NOAA CNRFC · Short-Range Peak Exceedance · '+esc(g.id)+(g.issuance?' · Issued '+esc(g.issuance):'')+'</p>';
+  const site=g.site||{};
+  const siteParts=[];
+  if(site.county)siteParts.push(site.county);
+  if(Number.isFinite(site.latitude)&&Number.isFinite(site.longitude))siteParts.push(site.latitude.toFixed(2)+'°, '+site.longitude.toFixed(2)+'°');
+  if(Number.isFinite(site.elevation_ft))siteParts.push(site.elevation_ft.toLocaleString()+' ft elevation');
+  if(siteParts.length)card.insertAdjacentHTML('beforeend','<p class="ensemble-meta">Gauge details: '+esc(siteParts.join(' · '))+'</p>');
   const th=g.thresholds||{};
   const thresholdItems=[['Action',th.action],['Minor flood',th.minor],['Moderate flood',th.moderate],['Major flood',th.major]];
   const thresholdHtml=thresholdItems.some(function(x){return x[1]!==undefined;})
