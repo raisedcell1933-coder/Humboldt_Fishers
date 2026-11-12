@@ -1257,12 +1257,14 @@ def _cnrfc_parse_hourly_csv(csv_text):
                 continue
             if number == -999 or number < 0:
                 continue
-            # NOAA CNRFC hourly HEFS ensemble flow data are published in kcfs.
-            values.append(number * 1000.0)
+            # CNRFC hourly HEFS CSV flow values are in kcfs; chart values are CFS.
+            values.append(round(number * 1000.0, 2))
         if values:
             points.append({
                 "time": stamp.isoformat().replace("+00:00", "Z"),
                 "members": len(values),
+                "trace_values": values,
+                "mean": round(sum(values) / len(values), 2),
                 "p10": round(_cnrfc_percentile(values, .10), 2),
                 "p25": round(_cnrfc_percentile(values, .25), 2),
                 "p50": round(_cnrfc_percentile(values, .50), 2),
@@ -1271,7 +1273,18 @@ def _cnrfc_parse_hourly_csv(csv_text):
             })
     if not points:
         raise ValueError("NOAA CNRFC CSV did not contain recognizable dated ensemble rows.")
-    return points
+    trace_count = max(point["members"] for point in points)
+    traces = []
+    for member_index in range(trace_count):
+        traces.append({
+            "name": "Model trace " + str(member_index + 1),
+            "data": [
+                point["trace_values"][member_index]
+                if member_index < len(point["trace_values"]) else None
+                for point in points
+            ],
+        })
+    return {"points": points, "traces": traces}
 
 @app.route("/api/cnrfc-ensemble")
 def cnrfc_ensemble_api():
@@ -1295,8 +1308,8 @@ def cnrfc_ensemble_api():
                     "User-Agent": "HumboldtFishers/1.0 (NOAA CNRFC HEFS data display)"
                 })
                 response.raise_for_status()
-                points = _cnrfc_parse_hourly_csv(response.text)
-                return {**station, "ok": True, "points": points, "source": url}
+                parsed = _cnrfc_parse_hourly_csv(response.text)
+                return {**station, "ok": True, **parsed, "source": url}
             except Exception as exc:
                 app.logger.warning("CNRFC HEFS data unavailable for %s: %s", station["id"], exc)
                 return {**station, "ok": False, "points": [],
