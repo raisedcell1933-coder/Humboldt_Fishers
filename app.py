@@ -1467,13 +1467,6 @@ img,svg,canvas,video{max-width:100%!important}
     var scale=Math.min(1,available/width);
     body.style.width=width+'px';
     body.style.transform='scale('+scale+')';
-    var height=Math.max(doc.scrollHeight||0,body.scrollHeight||0);
-    Array.prototype.forEach.call(body.children,function(el){
-      var rect=el.getBoundingClientRect();
-      height=Math.max(height,rect.bottom+(window.pageYOffset||0));
-    });
-    var fittedHeight=Math.ceil(height*scale)+28;
-    parent.postMessage({type:'fish-humboldt-noaa-height',height:fittedHeight},'*');
   }
   function scheduleFit(){
     fitNoaaContent();
