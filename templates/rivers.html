@@ -268,6 +268,7 @@ loadFlow();setInterval(()=>loadFlow(false),15*60*1000);
    if(!response.ok)throw new Error(data.error||'NOAA data request failed');
    detailed.innerHTML='';
    (data.gauges||[]).forEach(drawGauge);
+   ['Mattole River','Mendocino Coast Streams'].forEach(function(name){const card=document.createElement('article');card.className='ensemble-card';card.innerHTML='<h3>'+esc(name)+'</h3><p class=\"flow-state\">No matching CNRFC short-range HEFS forecast station has been verified for this river group. No substitute graph or estimated data is shown.</p>';detailed.appendChild(card);});
    const loadedCount=(data.gauges||[]).filter(function(g){return g.ok;}).length;
    detailed.insertAdjacentHTML('afterbegin','<p class="flow-warning">Source: official NOAA CNRFC HEFS hourly ensemble CSV files. The graph shows the percentile spread calculated from NOAA forecast members; it is a forecast, not a guarantee of river conditions. NOAA publishes these hourly ensemble flow values in thousands of cubic feet per second (kcfs); Fish Humboldt converts them to CFS. Missing or unavailable station data are not estimated. Retrieved: '+esc(new Date(data.updated).toLocaleString())+'. '+loadedCount+' of '+(data.gauges||[]).length+' station files loaded.</p>');
   }catch(error){
@@ -279,7 +280,6 @@ loadFlow();setInterval(()=>loadFlow(false),15*60*1000);
  toggle.addEventListener('click',function(){
   const show=detailed.hidden;
   if(show)build();
-  else{charts.forEach(function(chart){chart.destroy();});charts=[];}
   detailed.hidden=!show;basic.hidden=show;
   toggle.setAttribute('aria-expanded',String(show));
   toggle.textContent=show?'Show Weekly River Height & Flow':'More Informational Graph';
