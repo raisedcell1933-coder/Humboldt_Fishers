@@ -283,7 +283,7 @@ loadFlow();setInterval(()=>loadFlow(false),15*60*1000);
        frame.className='cnrfc-native-frame';
        frame.title='Official NOAA graph and information for '+(station.name||station.id);
        frame.loading='lazy';
-       frame.src='/cnrfc/product/'+encodeURIComponent(station.id)+'?v='+encodeURIComponent(station.hash);
+       frame.src='/cnrfc/product/'+encodeURIComponent(station.id)+'?embed=1&v='+encodeURIComponent(station.hash);
        frame.addEventListener('error',function(){
          const note=document.createElement('p');
          note.className='flow-state';
@@ -357,6 +357,16 @@ loadFlow();setInterval(()=>loadFlow(false),15*60*1000);
      checking=false;
      detailed.removeAttribute('aria-busy');
    }
+ }
+
+ const params=new URLSearchParams(window.location.search);
+ if(params.get('show_informational_graph')==='1'){
+   detailed.hidden=false;
+   basic.hidden=true;
+   toggle.setAttribute('aria-expanded','true');
+   toggle.textContent='Show Weekly River Height & Flow';
+   check(false);
+   window.history.replaceState({},document.title,window.location.pathname);
  }
 
  toggle.addEventListener('click',function(){
