@@ -1436,7 +1436,52 @@ def cnrfc_product_proxy(station_id):
         item = _cnrfc_fetch_native_page(station_id, request.args.get("refresh") == "1")
         page = item["html"]
         base = '<base href="https://www.cnrfc.noaa.gov/mobile/">'
-        page = re.sub(r"(<head\b[^>]*>)", lambda m:m.group(1)+base, page, count=1, flags=re.I)
+        # Give the NOAA document a real phone viewport and fit any fixed-width
+        # graph/table layout inside the available iframe width. The NOAA page
+        # itself remains intact; this only scales its presentation on narrow screens.
+        viewport = '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'
+        mobile_fit = r"""
+<style id="fish-humboldt-mobile-fit">
+html,body{max-width:100%!important;overflow-x:hidden!important}
+body{transform-origin:top left!important}
+img,svg,canvas,video{max-width:100%!important}
+</style>
+<script>
+(function(){
+  function fitNoaaContent(){
+    var doc=document.documentElement, body=document.body;
+    if(!doc||!body)return;
+    body.style.transform='none';
+    body.style.width='';
+    var width=Math.max(doc.scrollWidth||0,body.scrollWidth||0,doc.clientWidth||0);
+    Array.prototype.forEach.call(body.children,function(el){
+      var rect=el.getBoundingClientRect();
+      width=Math.max(width,rect.right+(window.pageXOffset||0));
+    });
+    var available=doc.clientWidth||window.innerWidth||0;
+    if(!available||!width)return;
+    var scale=Math.min(1,available/width);
+    if(scale<0.995){
+      body.style.width=width+'px';
+      body.style.transform='scale('+scale+')';
+    }
+  }
+  function scheduleFit(){
+    fitNoaaContent();
+    setTimeout(fitNoaaContent,250);
+    setTimeout(fitNoaaContent,900);
+    setTimeout(fitNoaaContent,1800);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',scheduleFit);
+  else scheduleFit();
+  window.addEventListener('load',scheduleFit);
+  window.addEventListener('resize',scheduleFit);
+})();
+</script>
+"""
+        page = re.sub(r"(<head\b[^>]*>)", lambda m:m.group(1)+base+viewport+mobile_fit, page, count=1, flags=re.I)
+        # Replace NOAA's desktop-only viewport declaration if it appears later.
+        page = re.sub(r'<meta[^>]+name=["\\']viewport["\\'][^>]*>', viewport, page, count=1, flags=re.I) if page.count(viewport)==0 else page
         return Response(page, content_type="text/html; charset=utf-8",
                         headers={"Cache-Control":"no-store"})
     except Exception:
