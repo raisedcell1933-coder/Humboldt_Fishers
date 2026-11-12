@@ -1239,7 +1239,7 @@ def _cnrfc_parse_hourly_csv(csv_text):
     import csv
     import io
     points = []
-    for row in csv.reader(io.StringIO(csv_text.lstrip("\\ufeff"))):
+    for row in csv.reader(io.StringIO(csv_text.lstrip("\ufeff"))):
         if len(row) < 2:
             continue
         stamp = _cnrfc_parse_time(row[0])
