@@ -40,7 +40,7 @@
 <div class="eyebrow">NOAA EUREKA · MARINE FORECAST</div><h1>Ocean & Humboldt Bay Swells</h1>
 <p class="intro">Forecast charts from the National Weather Service Eureka coastal marine forecast grid. Switch between this week and next week, and compare offshore ocean conditions with the Humboldt Bay entrance.</p>
 <div class="notice"><strong>Important:</strong> These are model forecasts, not real-time wave measurements or a boating safety determination. NOAA currently publishes up to 7 days of coastal marine grid forecast data. Any requested hours outside that forecast window will show NA. Check marine warnings and the official forecast before going on the water.</div>
-<div class="bay-swell-week"><button type="button" class="bay-swell-week-btn active" id="bay-swell-this">This Week</button><button type="button" class="bay-swell-week-btn" id="bay-swell-next">Next Week</button><span id="bay-swell-meta">Loading NOAA marine forecast…</span></div>
+<div class="bay-swell-week"><button type="button" class="bay-swell-week-btn active" id="bay-swell-this">This Week</button><button type="button" class="bay-swell-week-btn" id="bay-swell-next">Next Week</button><span id="bay-swell-meta">Loading NOAA marine forecast…</span><button type="button" class="bay-swell-week-btn" id="bay-swell-refresh">Refresh NOAA data</button></div>
 <div id="bay-swell-note" class="bay-swell-note" role="status"></div><div id="bay-swell-locations" class="bay-swell-locations"></div>
 <div class="source-links"><a href="https://www.weather.gov/eka/marine" target="_blank" rel="noopener">NOAA Eureka Marine Weather ↗</a><a href="https://www.weather.gov/marine/point" target="_blank" rel="noopener">NOAA Marine Point Forecasts ↗</a></div>
 </section>
@@ -87,7 +87,7 @@
  const container=document.getElementById('bay-swell-locations');
  const meta=document.getElementById('bay-swell-meta');
  const note=document.getElementById('bay-swell-note');
- const thisBtn=document.getElementById('bay-swell-this'),nextBtn=document.getElementById('bay-swell-next');
+ const thisBtn=document.getElementById('bay-swell-this'),nextBtn=document.getElementById('bay-swell-next'),refreshBtn=document.getElementById('bay-swell-refresh');
  let data=null,selected='this',charts=[];
  function dateOf(s){const d=new Date(s);return Number.isNaN(d.getTime())?null:d;}
  function monday(d){const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()-((x.getDay()+6)%7));return x;}
@@ -106,9 +106,9 @@
    const rows=(loc.points||[]).map(p=>({...p,dt:dateOf(p.time)})).filter(p=>p.dt&&p.dt>=bounds.start&&p.dt<bounds.end);
    const latest=rows.find(p=>p.primarySwellHeight!=null||p.waveHeight!=null)||{};
    const primary=rows.find(p=>p.primarySwellHeight!=null)||{};
-   const table=rows.length?rows.map(p=>'<tr><td>'+esc(p.dt.toLocaleString())+'</td><td>'+val(p.primarySwellHeight,'ft')+'</td><td>'+val(p.primarySwellDirection,'°',0)+'</td><td>'+val(p.waveHeight,'ft')+'</td><td>'+val(p.wavePeriod,'sec')+'</td></tr>').join(''):'<tr><td colspan="5" class="bay-swell-na">NA — no NOAA values were returned for this week.</td></tr>';
+   const table=rows.length?rows.map(p=>'<tr><td>'+esc(p.dt.toLocaleString())+'</td><td>'+val(p.primarySwellHeight,'ft')+'</td><td>'+compass(p.primarySwellDirection)+'</td><td>'+val(p.secondarySwellHeight,'ft')+'</td><td>'+compass(p.secondarySwellDirection)+'</td><td>'+val(p.windWaveHeight,'ft')+'</td><td>'+val(p.waveHeight,'ft')+'</td><td>'+val(p.wavePeriod,'sec')+'</td></tr>').join(''):'<tr><td colspan="5" class="bay-swell-na">NA — no NOAA values were returned for this week.</td></tr>';
    return '<article class="bay-swell-card"><h2>'+esc(loc.name)+'</h2><p class="bay-swell-desc">'+esc(loc.description||'')+'</p>'+(loc.ok?'':'<p class="bay-swell-na">'+esc(loc.error||'NA')+'</p>')+
-    '<div class="bay-swell-summary"><div class="bay-swell-metric"><span>Primary swell height</span><strong>'+val(primary.primarySwellHeight,'ft')+'</strong></div><div class="bay-swell-metric"><span>Swell direction</span><strong>'+compass(primary.primarySwellDirection)+'</strong></div><div class="bay-swell-metric"><span>Combined wave height</span><strong>'+val(latest.waveHeight,'ft')+'</strong></div><div class="bay-swell-metric"><span>Wave period</span><strong>'+val(latest.wavePeriod,'sec')+'</strong></div></div>'+
+    '<div class="bay-swell-summary"><div class="bay-swell-metric"><span>Primary swell height</span><strong>'+val(primary.primarySwellHeight,'ft')+'</strong></div><div class="bay-swell-metric"><span>Primary swell direction</span><strong>'+compass(primary.primarySwellDirection)+'</strong></div><div class="bay-swell-metric"><span>Secondary swell height</span><strong>'+val(secondary.secondarySwellHeight,'ft')+'</strong></div><div class="bay-swell-metric"><span>Wind-wave height</span><strong>'+val(windWave.windWaveHeight,'ft')+'</strong></div><div class="bay-swell-metric"><span>Combined wave height</span><strong>'+val(latest.waveHeight,'ft')+'</strong></div><div class="bay-swell-metric"><span>Wave period</span><strong>'+val(latest.wavePeriod,'sec')+'</strong></div></div>'+
     '<div class="bay-swell-chart"><canvas id="bay-swell-chart-'+i+'" aria-label="'+esc(loc.name)+' weekly swell and wave height chart"></canvas></div>'+
     '<details><summary>View forecast values</summary><div class="bay-swell-table-wrap"><table class="bay-swell-table"><thead><tr><th>Time</th><th>Primary swell (ft)</th><th>Direction</th><th>Combined waves (ft)</th><th>Period (sec)</th></tr></thead><tbody>'+table+'</tbody></table></div></details></article>';
   }).join('');
