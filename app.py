@@ -326,6 +326,9 @@ WEATHER_TOWNS = {
     "McKinleyville": (40.9465, -124.1006),
     "Rio Dell": (40.4993, -124.1064),
     "Scotia": (40.4829, -124.1045),
+    "Ferndale": (40.5762, -124.2636),
+    "Trinidad": (41.0596, -124.1428),
+    "Blue Lake": (40.8829, -123.9839),
 }
 
 def fetch_nws_hourly(lat, lon):
