@@ -335,7 +335,7 @@ def fetch_nws_hourly(lat, lon):
     """Fetch a real 16-day hourly weather forecast from Open-Meteo for the selected town."""
     params = {
         "latitude": lat, "longitude": lon,
-        "hourly": "temperature_2m,precipitation_probability,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m",
+        "hourly": "temperature_2m,precipitation_probability,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m",
         "temperature_unit": "fahrenheit", "wind_speed_unit": "mph",
         "timezone": "America/Los_Angeles", "forecast_days": 16,
     }
@@ -398,6 +398,7 @@ def fetch_nws_hourly(lat, lon):
             "cloudCover": (hourly.get("cloud_cover") or [None] * len(times))[i],
             "shortForecast": description(codes[i] if i < len(codes) else None),
             "precipitationProbability": (hourly.get("precipitation_probability") or [None] * len(times))[i],
+            "precipitationMm": (hourly.get("precipitation") or [None] * len(times))[i],
             "windSpeed": (hourly.get("wind_speed_10m") or [None] * len(times))[i],
             "windDirection": (hourly.get("wind_direction_10m") or [None] * len(times))[i],
             "icon": None,
