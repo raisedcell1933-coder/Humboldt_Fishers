@@ -331,6 +331,66 @@ WEATHER_TOWNS = {
     "Blue Lake": (40.8829, -123.9839),
 }
 
+# Cache the nearest NWS observation stations; station locations rarely change.
+weather_station_cache = {}
+
+def _nws_json(url, timeout=10):
+    response = requests.get(
+        url, timeout=timeout,
+        headers={
+            "User-Agent": "FishHumboldt/1.0 (weather observations; https://fishhumboldt.com)",
+            "Accept": "application/geo+json",
+        },
+    )
+    response.raise_for_status()
+    return response.json()
+
+def fetch_nws_observed_rain(town, lat, lon):
+    """Return the latest real one-hour precipitation report from a nearby NWS station."""
+    station_ids = weather_station_cache.get(town)
+    if not station_ids:
+        point = _nws_json(f"https://api.weather.gov/points/{lat},{lon}")
+        stations_url = (point.get("properties") or {}).get("observationStations")
+        if not stations_url:
+            return None
+        station_data = _nws_json(stations_url)
+        station_ids = []
+        for feature in station_data.get("features", [])[:5]:
+            props = feature.get("properties") or {}
+            station_id = props.get("stationIdentifier")
+            if not station_id and feature.get("id"):
+                station_id = str(feature["id"]).rstrip("/").split("/")[-1]
+            if station_id:
+                station_ids.append(station_id)
+        weather_station_cache[town] = station_ids
+
+    now = datetime.now(PACIFIC)
+    for station_id in station_ids[:3]:
+        try:
+            payload = _nws_json(f"https://api.weather.gov/stations/{station_id}/observations/latest")
+            props = payload.get("properties") or {}
+            amount = (props.get("precipitationLastHour") or {}).get("value")
+            stamp = props.get("timestamp")
+            if amount is None or not stamp:
+                continue
+            observed_at = datetime.fromisoformat(stamp.replace("Z", "+00:00")).astimezone(PACIFIC)
+            # Do not attach an old station report to the current day/hour.
+            if abs((now - observed_at).total_seconds()) > 3 * 60 * 60:
+                continue
+            amount = float(amount)
+            if amount < 0:
+                continue
+            hour = observed_at.replace(minute=0, second=0, microsecond=0)
+            return {
+                "hour": hour.isoformat(timespec="minutes"),
+                "millimeters": amount,
+                "station": station_id,
+                "observedAt": observed_at.isoformat(),
+            }
+        except Exception as exc:
+            app.logger.debug("NWS observed rain lookup failed for %s at %s: %s", town, station_id, exc)
+    return None
+
 def fetch_nws_hourly(lat, lon):
     """Fetch a real 16-day hourly weather forecast from Open-Meteo for the selected town."""
     params = {
@@ -548,13 +608,43 @@ def get_weather(force=False):
                 errors[name] = str(exc)
                 towns[name] = []
         merged_towns = _merge_weekly_weather(saved, towns, now)
+
+        # Add measured precipitation to the matching local hour. The stored
+        # hourly observations survive later forecast refreshes and week toggles.
+        observation_errors = {}
+        for name, (lat, lon) in WEATHER_TOWNS.items():
+            try:
+                observation = fetch_nws_observed_rain(name, lat, lon)
+                if not observation:
+                    continue
+                target_hour = observation["hour"]
+                for period in merged_towns.get(name, []):
+                    try:
+                        period_dt = datetime.fromisoformat(period.get("startTime", "").replace("Z", "+00:00"))
+                        if period_dt.tzinfo is None:
+                            period_dt = period_dt.replace(tzinfo=PACIFIC)
+                        else:
+                            period_dt = period_dt.astimezone(PACIFIC)
+                        if period_dt.strftime("%Y-%m-%dT%H:%M") == target_hour:
+                            period["observedPrecipitationMm"] = observation["millimeters"]
+                            period["observedStation"] = observation["station"]
+                            period["observedAt"] = observation["observedAt"]
+                            break
+                    except (TypeError, ValueError):
+                        continue
+            except Exception as exc:
+                observation_errors[name] = str(exc)
+                app.logger.warning("Observed rain unavailable for %s: %s", name, exc)
+
         if not any(merged_towns.values()):
             raise RuntimeError("The National Weather Service did not return any hourly forecasts. Please try again shortly.")
         week_start, _ = _week_bounds(now)
-        data = {"towns": merged_towns, "errors": errors, "updated": now.isoformat(),
+        data = {"towns": merged_towns, "errors": errors,
+                "observation_errors": observation_errors, "updated": now.isoformat(),
                 "week_start": week_start.date().isoformat(),
                 "source": "Open-Meteo hourly forecast (16-day model forecast)",
-                "status": "partial" if errors else "live"}
+                "observed_source": "National Weather Service station observations — latest reported one-hour precipitation from the nearest available station",
+                "status": "partial" if errors or observation_errors else "live"}
         _write_weather_history(data)
         weather_cache.update(fetched=now, data=data)
         return data
