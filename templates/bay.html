@@ -130,6 +130,7 @@
  }
  thisBtn.addEventListener('click',()=>{selected='this';render();});
  nextBtn.addEventListener('click',()=>{selected='next';render();});
+ refreshBtn.addEventListener('click',()=>loadBaySwells(true));
  window.loadBaySwells=loadBaySwells;
  setInterval(()=>{data=null;loadBaySwells(true);},15*60*1000);
 })();
