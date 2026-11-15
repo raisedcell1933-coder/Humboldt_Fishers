@@ -97,7 +97,7 @@ a{color:#238fca}
 <div class="actions"><button class="btn" id="refresh" onclick="loadRivers(true)">Check official source</button><span id="meta">Waiting to check…</span></div>
 <div id="message" class="muted" role="status">Loading official source…</div><section class="grid" id="rivers" aria-live="polite"></section>
 </div>
-<section class="flow-section river-view-panel" id="river-flow-panel" role="tabpanel" aria-labelledby="river-flow-tab" hidden aria-labelledby="flow-title">
+<section class="flow-section river-view-panel" id="river-flow-panel" role="tabpanel" aria-labelledby="flow-title" hidden>
 <h2 id="flow-title">Weekly River Height & Flow</h2>
 <p class="flow-intro">Monday–Sunday charts using NOAA/NWS gauge observations and forecasts where available. Solid lines are observed readings; dashed lines are forecasts. The dated table shows N/A for forecast/future times and for missing sensor values until a valid observed reading is published. Height is shown in feet; flow is shown in cubic feet per second (CFS).</p>
 <div class="notice">Charts check for new NOAA data every 15 minutes and switch to the next Monday–Sunday week at 2:00 AM Pacific on Sunday. NOAA may not publish a forecast for every gauge or every hour; missing values are left blank. A gauge represents one location, not every fishing access point along the river.</div>
@@ -123,7 +123,7 @@ a{color:#238fca}
    flowTab.setAttribute('aria-selected',String(!isStatus));
  }
  statusTab.addEventListener('click',()=>show('status'));
- flowTab.addEventListener('click',()=>show('flow'));
+ flowTab.addEventListener('click',()=>{show('flow');if(typeof flowCharts!=='undefined')flowCharts.forEach(chart=>chart.resize());});
  statusTab.addEventListener('keydown',e=>{if(e.key==='ArrowRight'){e.preventDefault();flowTab.focus();show('flow')}});
  flowTab.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'){e.preventDefault();statusTab.focus();show('status')}});
 })();
