@@ -1624,6 +1624,99 @@ def river_flow_api():
 def rivers_refresh_api():
     return rivers_api()
 
+_BAY_SWELL_CACHE = {"fetched": None, "data": None}
+_BAY_SWELL_LOCK = Lock()
+_BAY_SWELL_TTL = 15 * 60
+_BAY_SWELL_POINTS = [
+    {"key": "ocean", "name": "Ocean — offshore of Eureka", "lat": 40.75, "lon": -124.39,
+     "description": "NWS marine point approximately 11 nautical miles west-southwest of Eureka."},
+    {"key": "bay", "name": "Humboldt Bay entrance", "lat": 40.75, "lon": -124.22,
+     "description": "NWS point near the Humboldt Bay entrance channel. Some marine grid values may not be available inside the bay."},
+]
+_BAY_SWELL_FIELDS = {
+    "waveHeight": "combined wave height",
+    "wavePeriod": "combined wave period",
+    "waveDirection": "combined wave direction",
+    "primarySwellHeight": "primary swell height",
+    "primarySwellDirection": "primary swell direction",
+    "secondarySwellHeight": "secondary swell height",
+    "secondarySwellDirection": "secondary swell direction",
+    "wavePeriod2": "secondary wave period",
+    "windWaveHeight": "wind-wave height",
+}
+
+def _nws_wave_series(grid_data, field):
+    prop = (grid_data.get("properties") or {}).get(field) or {}
+    values = prop.get("values") or []
+    result = []
+    for item in values:
+        try:
+            stamp = str(item.get("validTime", "")).split("/")[0]
+            dt = datetime.fromisoformat(stamp.replace("Z", "+00:00")).astimezone(PACIFIC)
+            value = item.get("value")
+            if value is None:
+                continue
+            value = float(value)
+            if value < 0:
+                continue
+            unit = str(prop.get("uom") or "").lower()
+            # NWS marine heights are commonly supplied in meters; chart them in feet.
+            if field.lower().endswith("height") and (unit.endswith(":m") or "meter" in unit):
+                value *= 3.280839895
+            result.append((dt, value))
+        except (TypeError, ValueError, AttributeError):
+            continue
+    return result
+
+def _fetch_bay_swell_point(point):
+    headers = {"User-Agent": "FishHumboldt/1.0 (NOAA Eureka marine swell display; https://fishhumboldt.com)",
+               "Accept": "application/geo+json"}
+    meta = requests.get(f"https://api.weather.gov/points/{point['lat']},{point['lon']}",
+                        headers=headers, timeout=15)
+    meta.raise_for_status()
+    grid_url = (meta.json().get("properties") or {}).get("forecastGridData")
+    if not grid_url:
+        raise RuntimeError("NWS did not provide a coastal marine grid forecast for this point.")
+    response = requests.get(grid_url, headers=headers, timeout=20)
+    response.raise_for_status()
+    payload = response.json()
+    fields = {name: _nws_wave_series(payload, name) for name in _BAY_SWELL_FIELDS}
+    by_time = {}
+    for field, rows in fields.items():
+        for dt, value in rows:
+            by_time.setdefault(dt.isoformat(timespec="minutes"), {"time": dt.isoformat(timespec="minutes")})[field] = value
+    points = sorted(by_time.values(), key=lambda row: row["time"])
+    return {**point, "ok": True, "points": points, "available_fields": [k for k,v in fields.items() if v]}
+
+@app.route("/api/bay-swells")
+def bay_swells_api():
+    import time
+    force = request.args.get("refresh") == "1"
+    now_ts = time.time()
+    if not force and _BAY_SWELL_CACHE["data"] is not None and now_ts - (_BAY_SWELL_CACHE["fetched"] or 0) < _BAY_SWELL_TTL:
+        return jsonify(_BAY_SWELL_CACHE["data"])
+    with _BAY_SWELL_LOCK:
+        now_ts = time.time()
+        if not force and _BAY_SWELL_CACHE["data"] is not None and now_ts - (_BAY_SWELL_CACHE["fetched"] or 0) < _BAY_SWELL_TTL:
+            return jsonify(_BAY_SWELL_CACHE["data"])
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(_fetch_bay_swell_point, point) for point in _BAY_SWELL_POINTS]
+            locations = []
+            for point, future in zip(_BAY_SWELL_POINTS, futures):
+                try:
+                    locations.append(future.result())
+                except Exception as exc:
+                    app.logger.warning("NOAA swell forecast unavailable for %s: %s", point["name"], exc)
+                    locations.append({**point, "ok": False, "points": [], "available_fields": [],
+                                      "error": "NA — NOAA marine swell data is not available for this location right now."})
+        data = {"updated": datetime.now(PACIFIC).isoformat(), "source": "National Weather Service Eureka marine forecast grid",
+                "source_url": "https://www.weather.gov/eka/marine", "locations": locations,
+                "forecast_limit_days": 7,
+                "note": "NOAA coastal marine grid forecasts currently provide up to 7 days. Any part of next week outside the published forecast window is shown as NA; no values are invented."}
+        _BAY_SWELL_CACHE.update(fetched=now_ts, data=data)
+        return jsonify(data)
+
 _BAY_REG_CHECK = {"checked_at": None, "status": "unknown", "species": {}}
 _BAY_REG_CHECKED_TS = 0.0
 _BAY_REG_CHECK_TTL_SECONDS = 24 * 60 * 60
