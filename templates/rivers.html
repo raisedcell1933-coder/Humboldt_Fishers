@@ -35,7 +35,13 @@ main{max-width:1120px;margin:auto;padding:30px 22px}
 .flow-section{margin-top:34px}.flow-section h2{color:#173644;font-size:28px;margin:0 0 8px}.flow-intro{color:#62737c;margin:0 0 16px}.flow-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr));gap:26px}.flow-card{min-width:0;background:#fff;border:1px solid #dce6eb;border-radius:13px;padding:16px;box-shadow:0 8px 26px rgba(25,57,72,.04)}.flow-card h3{margin:0 0 3px;color:#183847;font-size:19px}.station{font-size:13px;color:#71828a;margin-bottom:12px}.flow-state{font-size:13px;color:#536a75;margin:8px 0 12px}.chart-wrap{position:relative;height:210px;margin:12px 0 18px}.chart-title{font-size:14px;font-weight:700;color:#284d5c;margin-top:12px}.flow-card a{font-size:13px}.flow-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}.flow-table th,.flow-table td{text-align:left;padding:6px;border-bottom:1px solid #e8eef1}.flow-table-wrap{max-height:230px;overflow:auto}.flow-card details{margin-top:10px}.flow-card summary{cursor:pointer;color:#238fca;font-weight:700;font-size:13px}.flow-warning{background:#fff8e9;border:1px solid #f1dfb5;color:#735a20;border-radius:8px;padding:12px;margin:14px 0;font-size:13px}
 a{color:#238fca}
 @media(max-width:650px){.topbar{padding:14px 16px;align-items:flex-start;flex-direction:column}.site-nav{gap:13px}.site-nav a{font-size:13px}main{padding:24px 14px}}
-[hidden]{display:none!important}.ensemble-controls{display:flex;align-items:center;gap:8px;margin:8px 0}.ensemble-range{border:1px solid #b9c8d0;background:#fff;color:#294454;border-radius:5px;padding:6px 12px;cursor:pointer}.ensemble-range.active{background:#174f70;color:#fff;border-color:#174f70}.ensemble-chart-wrap{position:relative;height:300px;margin:12px 0 18px}.ensemble-meta{font-size:13px;color:#62737c;margin:5px 0 12px}.ensemble-grid{display:grid;grid-template-columns:1fr;gap:270px;margin-top:30px}.ensemble-card{min-width:0;background:#fff;border:1px solid #dce6eb;border-radius:13px;padding:14px;box-shadow:0 8px 26px rgba(25,57,72,.04)}.ensemble-card h3{margin:0 0 4px;color:#183847;font-size:19px}.ensemble-card p{margin:4px 0 10px;color:#62737c;font-size:13px}.ensemble-frame{display:block;width:100%;height:900px;border:1px solid #dce6eb;border-radius:8px;background:#fff}.ensemble-link{display:inline-block;margin:0 0 10px;font-weight:700}@media(max-width:650px){.ensemble-frame{height:760px}}.cnrfc-native-card{padding:0!important;overflow:hidden}.cnrfc-native-card>h3,.cnrfc-native-card>.ensemble-meta{margin-left:14px;margin-right:14px}.cnrfc-native-frame{display:block;width:100%;max-width:100%;height:2400px;border:0;background:#fff}@media(max-width:700px){.ensemble-grid{gap:2px;margin-top:18px}.cnrfc-native-card{width:100%;max-width:100%;min-width:0;padding:0!important;overflow:visible!important}.cnrfc-native-frame{display:block;width:100%;max-width:100%;height:1300px;min-height:1300px;border:0;background:#fff}.ensemble-card{padding:8px}.cnrfc-native-card>h3,.cnrfc-native-card>.ensemble-meta{margin-left:8px;margin-right:8px}}</style><style>
+[hidden]{display:none!important}
+.river-view-switch{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 22px;padding:5px;background:#e9f1f5;border:1px solid #d8e4ea;border-radius:10px;width:max-content;max-width:100%}
+.river-view-btn{border:0;border-radius:7px;background:transparent;color:#294b5b;padding:11px 18px;font-weight:800;font-size:14px;cursor:pointer;min-height:42px}
+.river-view-btn.active{background:#174f70;color:#fff;box-shadow:0 2px 7px rgba(16,55,76,.16)}
+.river-view-btn:focus-visible{outline:3px solid #22a9df;outline-offset:2px}
+@media(max-width:480px){.river-view-switch{display:grid;grid-template-columns:1fr 1fr;width:100%;gap:4px}.river-view-btn{padding:10px 8px;font-size:13px}}
+.ensemble-controls{display:flex;align-items:center;gap:8px;margin:8px 0}.ensemble-range{border:1px solid #b9c8d0;background:#fff;color:#294454;border-radius:5px;padding:6px 12px;cursor:pointer}.ensemble-range.active{background:#174f70;color:#fff;border-color:#174f70}.ensemble-chart-wrap{position:relative;height:300px;margin:12px 0 18px}.ensemble-meta{font-size:13px;color:#62737c;margin:5px 0 12px}.ensemble-grid{display:grid;grid-template-columns:1fr;gap:270px;margin-top:30px}.ensemble-card{min-width:0;background:#fff;border:1px solid #dce6eb;border-radius:13px;padding:14px;box-shadow:0 8px 26px rgba(25,57,72,.04)}.ensemble-card h3{margin:0 0 4px;color:#183847;font-size:19px}.ensemble-card p{margin:4px 0 10px;color:#62737c;font-size:13px}.ensemble-frame{display:block;width:100%;height:900px;border:1px solid #dce6eb;border-radius:8px;background:#fff}.ensemble-link{display:inline-block;margin:0 0 10px;font-weight:700}@media(max-width:650px){.ensemble-frame{height:760px}}.cnrfc-native-card{padding:0!important;overflow:hidden}.cnrfc-native-card>h3,.cnrfc-native-card>.ensemble-meta{margin-left:14px;margin-right:14px}.cnrfc-native-frame{display:block;width:100%;max-width:100%;height:2400px;border:0;background:#fff}@media(max-width:700px){.ensemble-grid{gap:2px;margin-top:18px}.cnrfc-native-card{width:100%;max-width:100%;min-width:0;padding:0!important;overflow:visible!important}.cnrfc-native-frame{display:block;width:100%;max-width:100%;height:1300px;min-height:1300px;border:0;background:#fff}.ensemble-card{padding:8px}.cnrfc-native-card>h3,.cnrfc-native-card>.ensemble-meta{margin-left:8px;margin-right:8px}}</style><style>
 /* Compact top-right hamburger with a right-side slide-out navigation drawer */
 .topbar{position:sticky!important;top:0!important;z-index:10000!important;display:flex!important;align-items:center!important;justify-content:space-between!important;min-height:58px!important;height:auto!important;flex-direction:row!important;flex-wrap:nowrap!important;padding:10px 18px!important;gap:12px!important}
 .menu-toggle{display:flex!important;align-items:center!important;justify-content:center!important;position:fixed!important;top:8px!important;right:12px!important;z-index:10003!important;width:42px!important;height:42px!important;padding:0!important;margin:0!important;border:1px solid rgba(100,150,170,.35)!important;border-radius:9px!important;background:#071725!important;color:#fff!important;font-size:25px!important;line-height:1!important;cursor:pointer!important;box-shadow:0 3px 12px rgba(0,0,0,.18)!important}
@@ -80,11 +86,18 @@ a{color:#238fca}
 </style>
 </head><body>
 <header class="topbar"><div class="brand">FISH <span>HUMBOLDT</span></div><nav class="site-nav" aria-label="Main navigation"><a href="/">Home</a><a href="/moon-cycle">Moon Cycle</a><a href="/tides">Tides</a><a href="/wind">Wind</a><a href="/weather">Weather</a><a href="/fishing-reports">Fishing Reports</a><a href="/fishing-stories">Fishing Stories</a><a href="/rivers">Rivers</a><a href="/bay">Bay</a><a href="/species">Species</a><a href="/map">Map</a><a href="/best-days">Best Days to Go Fishing</a></nav></header>
-<main><section class="intro"><h1>North Coast River Status</h1><p class="muted">Live Open/Closed status read from the latest dated row of the official CDFW North Coast Low-Flow table.</p></section>
+<main>
+<div class="river-view-switch" role="tablist" aria-label="River information views">
+<button class="river-view-btn active" id="river-status-tab" type="button" role="tab" aria-selected="true" aria-controls="river-status-panel">River Status</button>
+<button class="river-view-btn" id="river-flow-tab" type="button" role="tab" aria-selected="false" aria-controls="river-flow-panel">River Flow and Height</button>
+</div>
+<div id="river-status-panel" class="river-view-panel" role="tabpanel" aria-labelledby="river-status-tab">
+<section class="intro"><h1>North Coast River Status</h1><p class="muted">Live Open/Closed status read from the latest dated row of the official CDFW North Coast Low-Flow table.</p></section>
 <div class="notice"><strong>Important:</strong> This page reads the latest dated row from CDFW’s table. These are low-flow statuses only; rules can differ by river reach and other fishing regulations still apply. Always verify the official page before fishing.</div>
 <div class="actions"><button class="btn" id="refresh" onclick="loadRivers(true)">Check official source</button><span id="meta">Waiting to check…</span></div>
 <div id="message" class="muted" role="status">Loading official source…</div><section class="grid" id="rivers" aria-live="polite"></section>
-<section class="flow-section" aria-labelledby="flow-title">
+</div>
+<section class="flow-section river-view-panel" id="river-flow-panel" role="tabpanel" aria-labelledby="river-flow-tab" hidden aria-labelledby="flow-title">
 <h2 id="flow-title">Weekly River Height & Flow</h2>
 <p class="flow-intro">Monday–Sunday charts using NOAA/NWS gauge observations and forecasts where available. Solid lines are observed readings; dashed lines are forecasts. The dated table shows N/A for forecast/future times and for missing sensor values until a valid observed reading is published. Height is shown in feet; flow is shown in cubic feet per second (CFS).</p>
 <div class="notice">Charts check for new NOAA data every 15 minutes and switch to the next Monday–Sunday week at 2:00 AM Pacific on Sunday. NOAA may not publish a forecast for every gauge or every hour; missing values are left blank. A gauge represents one location, not every fishing access point along the river.</div>
@@ -95,6 +108,25 @@ a{color:#238fca}
 </section>
 <p class="footer">Sources: <a class="source" href="https://api.water.noaa.gov/nwps/v1/docs/" target="_blank" rel="noopener">NOAA National Water Prediction Service API</a> · <a class="source" href="https://wildlife.ca.gov/Fishing/Inland/Low-Flow/North-Coast" target="_blank" rel="noopener">CDFW North Coast Low-Flow rules</a></p>
 </main><script>
+(function(){
+ const statusTab=document.getElementById('river-status-tab');
+ const flowTab=document.getElementById('river-flow-tab');
+ const statusPanel=document.getElementById('river-status-panel');
+ const flowPanel=document.getElementById('river-flow-panel');
+ function show(which){
+   const isStatus=which==='status';
+   statusPanel.hidden=!isStatus;
+   flowPanel.hidden=isStatus;
+   statusTab.classList.toggle('active',isStatus);
+   flowTab.classList.toggle('active',!isStatus);
+   statusTab.setAttribute('aria-selected',String(isStatus));
+   flowTab.setAttribute('aria-selected',String(!isStatus));
+ }
+ statusTab.addEventListener('click',()=>show('status'));
+ flowTab.addEventListener('click',()=>show('flow'));
+ statusTab.addEventListener('keydown',e=>{if(e.key==='ArrowRight'){e.preventDefault();flowTab.focus();show('flow')}});
+ flowTab.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'){e.preventDefault();statusTab.focus();show('status')}});
+})();
 const list=document.getElementById('rivers'),msg=document.getElementById('message'),meta=document.getElementById('meta'),btn=document.getElementById('refresh');
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 async function loadRivers(force=false){btn.disabled=true;btn.textContent='Checking…';msg.textContent='Contacting the official source…';
