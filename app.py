@@ -1663,6 +1663,11 @@ def _nws_wave_series(grid_data, field):
             # NWS marine heights are commonly supplied in meters; chart them in feet.
             if field.lower().endswith("height") and (unit.endswith(":m") or "meter" in unit):
                 value *= 3.280839895
+            # Do not display unsupported zero wave periods/heights as calm seas.
+            if field in ("wavePeriod", "wavePeriod2") and value <= 0:
+                continue
+            if field in ("waveHeight", "primarySwellHeight", "secondarySwellHeight", "windWaveHeight") and value <= 0:
+                continue
             result.append((dt, value))
         except (TypeError, ValueError, AttributeError):
             continue
@@ -1686,7 +1691,16 @@ def _fetch_bay_swell_point(point):
         for dt, value in rows:
             by_time.setdefault(dt.isoformat(timespec="minutes"), {"time": dt.isoformat(timespec="minutes")})[field] = value
     points = sorted(by_time.values(), key=lambda row: row["time"])
-    return {**point, "ok": True, "points": points, "available_fields": [k for k,v in fields.items() if v]}
+    available_fields = [k for k,v in fields.items() if v]
+    has_wave_forecast = any(
+        row.get("waveHeight") is not None or row.get("primarySwellHeight") is not None
+        or row.get("secondarySwellHeight") is not None or row.get("windWaveHeight") is not None
+        for row in points
+    )
+    if not has_wave_forecast:
+        return {**point, "ok": False, "points": [], "available_fields": [],
+                "error": "NA — NOAA has not supplied usable wave-height values for this grid point. Use the dedicated Humboldt Bay bar forecast for entrance conditions."}
+    return {**point, "ok": True, "points": points, "available_fields": available_fields}
 
 @app.route("/api/bay-swells")
 def bay_swells_api():
@@ -1711,7 +1725,7 @@ def bay_swells_api():
                     locations.append({**point, "ok": False, "points": [], "available_fields": [],
                                       "error": "NA — NOAA marine swell data is not available for this location right now."})
         data = {"updated": datetime.now(PACIFIC).isoformat(), "source": "National Weather Service Eureka marine forecast grid",
-                "source_url": "https://www.weather.gov/eka/marine", "locations": locations,
+                "source_url": "https://www.weather.gov/eka/marine", "bay_bar_url": "https://www.weather.gov/eka/humboldtBayEntranceChannelForecast", "buoy_monitor_url": "https://www.weather.gov/eka/buoymonitor", "locations": locations,
                 "forecast_limit_days": 7,
                 "note": "NOAA coastal marine grid forecasts currently provide up to 7 days. Any part of next week outside the published forecast window is shown as NA; no values are invented."}
         _BAY_SWELL_CACHE.update(fetched=now_ts, data=data)
