@@ -101,7 +101,7 @@ a{color:#238fca}
 <h2 id="flow-title">Weekly River Height & Flow</h2>
 <div class="flow-warning"><strong>About CFS opening minimums:</strong> The thresholds shown on each river card are the official CDFW low-flow minimums at the named decision gauge. Meeting the number does not automatically open every reach. CDFW determines the official status on its update schedule, and seasonal closures, reach-specific rules, or other restrictions may still apply. Check the <a href="https://wildlife.ca.gov/Fishing/Inland/Low-Flow/North-Coast" target="_blank" rel="noopener">official CDFW North Coast Low Flow status</a> before fishing.</div>
 <p class="flow-intro">Monday–Sunday charts using NOAA/NWS gauge observations and forecasts where available. Solid lines are observed readings; dashed lines are forecasts. The dated table shows N/A for forecast/future times and for missing sensor values until a valid observed reading is published. Height is shown in feet; flow is shown in cubic feet per second (CFS).</p>
-<div class="notice">Charts check for new NOAA data every 15 minutes and switch to the next Monday–Sunday week at 12:00 AM Pacific on Sunday. NOAA may not publish a forecast for every gauge or every hour; missing values are left blank. A gauge represents one location, not every fishing access point along the river.</div>
+<div class="notice">Charts check for new NOAA data every 15 minutes and switch to the next Monday–Sunday week at 11:30 PM Pacific on Sunday. NOAA may not publish a forecast for every gauge or every hour; missing values are left blank. A gauge represents one location, not every fishing access point along the river.</div>
 <div class="actions"><button class="btn" id="flow-refresh" onclick="loadFlow(true)">Refresh river charts</button><button class="btn" id="ensemble-toggle" type="button" aria-expanded="false">More Informational Graph</button><span id="flow-meta">Loading NOAA river data…</span></div>
 <div class="flow-warning">These charts are informational, not a safety guarantee. Check official flood alerts and local conditions before entering or crossing a river.</div>
 <section class="flow-grid" id="flow-grid" aria-live="polite"></section>
@@ -143,7 +143,7 @@ loadRivers();setInterval(()=>loadRivers(false),15*60*1000);
 <script>
 const flowGrid=document.getElementById('flow-grid'),flowMeta=document.getElementById('flow-meta'),flowBtn=document.getElementById('flow-refresh');
 let flowCharts=[];
-function getWeekStart(){const now=new Date();const d=new Date(now);const day=d.getDay();let daysSinceMonday=(day+6)%7;d.setDate(d.getDate()-daysSinceMonday);d.setHours(0,0,0,0);if(day===0){d.setDate(d.getDate()+7)}return d;}
+function getWeekStart(){const now=new Date();const d=new Date(now);const day=d.getDay();let daysSinceMonday=(day+6)%7;d.setDate(d.getDate()-daysSinceMonday);d.setHours(0,0,0,0);const minutes=now.getHours()*60+now.getMinutes();if(day===0&&minutes>=1410){d.setDate(d.getDate()+7)}return d;}
 function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x;}
 function dateKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function fmtDate(d){return d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});}
