@@ -653,14 +653,28 @@ def get_weather(force=False):
                     app.logger.warning("Observed rain unavailable for %s: %s", name, exc)
 
         if not any(merged_towns.values()):
-            raise RuntimeError("The National Weather Service did not return any hourly forecasts. Please try again shortly.")
+            # If the forecast provider is temporarily unavailable, serve the
+            # durable saved forecast for this and next week instead of returning
+            # an error page. This is especially important after a server restart,
+            # when the in-memory cache has not yet been warmed.
+            saved_towns = saved.get("towns", {}) if isinstance(saved, dict) else {}
+            if any(saved_towns.values()):
+                merged_towns = _merge_weekly_weather(saved, {}, now)
+                if any(merged_towns.values()):
+                    errors["provider"] = "Live forecast provider temporarily unavailable; showing the last saved forecast."
+                    app.logger.warning("Weather provider unavailable; returning saved weekly forecast.")
+            if not any(merged_towns.values()):
+                raise RuntimeError(
+                    "The weather provider did not return hourly forecasts and no saved forecast is available yet. "
+                    + "; ".join(f"{town}: {message}" for town, message in errors.items())
+                )
         week_start, _ = _week_bounds(now)
         data = {"towns": merged_towns, "errors": errors,
                 "observation_errors": observation_errors, "updated": now.isoformat(),
                 "week_start": week_start.date().isoformat(),
                 "source": "Open-Meteo hourly forecast (16-day model forecast)",
                 "observed_source": "National Weather Service station observations — latest reported one-hour precipitation from the nearest available station",
-                "status": "partial" if errors or observation_errors else "live"}
+                "status": "stale" if errors.get("provider") else ("partial" if errors or observation_errors else "live")}
         _write_weather_history(data)
         weather_cache.update(fetched=now, data=data)
         return data
