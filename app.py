@@ -412,7 +412,7 @@ def fetch_nws_hourly(lat, lon):
                 response = requests.get(
                     "https://api.open-meteo.com/v1/forecast",
                     params=params,
-                    timeout=35,
+                    timeout=12,
                     headers={"User-Agent": "HumboldtFishers/1.0 weather forecast"},
                 )
                 response.raise_for_status()
@@ -600,41 +600,57 @@ def get_weather(force=False):
                 and (now - weather_cache["fetched"]).total_seconds() < CACHE_SECONDS):
             return weather_cache["data"]
         saved = _read_weather_history()
+        # Fetch all town forecasts at the same time instead of waiting for nine
+        # separate network requests in sequence. A short timeout keeps weak
+        # connections from holding the entire Weather page for too long.
+        from concurrent.futures import ThreadPoolExecutor, as_completed
         towns, errors = {}, {}
-        for name, (lat, lon) in WEATHER_TOWNS.items():
-            try:
-                towns[name] = fetch_nws_hourly(lat, lon)
-            except Exception as exc:
-                errors[name] = str(exc)
-                towns[name] = []
+        with ThreadPoolExecutor(max_workers=len(WEATHER_TOWNS)) as pool:
+            forecast_jobs = {
+                pool.submit(fetch_nws_hourly, lat, lon): name
+                for name, (lat, lon) in WEATHER_TOWNS.items()
+            }
+            for job in as_completed(forecast_jobs):
+                name = forecast_jobs[job]
+                try:
+                    towns[name] = job.result()
+                except Exception as exc:
+                    errors[name] = str(exc)
+                    towns[name] = []
         merged_towns = _merge_weekly_weather(saved, towns, now)
 
-        # Add measured precipitation to the matching local hour. The stored
-        # hourly observations survive later forecast refreshes and week toggles.
+        # Observed-rain reports are supplementary. Fetch them concurrently too,
+        # so one slow station cannot delay every other town's report.
         observation_errors = {}
-        for name, (lat, lon) in WEATHER_TOWNS.items():
-            try:
-                observation = fetch_nws_observed_rain(name, lat, lon)
-                if not observation:
-                    continue
-                target_hour = observation["hour"]
-                for period in merged_towns.get(name, []):
-                    try:
-                        period_dt = datetime.fromisoformat(period.get("startTime", "").replace("Z", "+00:00"))
-                        if period_dt.tzinfo is None:
-                            period_dt = period_dt.replace(tzinfo=PACIFIC)
-                        else:
-                            period_dt = period_dt.astimezone(PACIFIC)
-                        if period_dt.strftime("%Y-%m-%dT%H:%M") == target_hour:
-                            period["observedPrecipitationMm"] = observation["millimeters"]
-                            period["observedStation"] = observation["station"]
-                            period["observedAt"] = observation["observedAt"]
-                            break
-                    except (TypeError, ValueError):
+        with ThreadPoolExecutor(max_workers=len(WEATHER_TOWNS)) as pool:
+            observation_jobs = {
+                pool.submit(fetch_nws_observed_rain, name, lat, lon): name
+                for name, (lat, lon) in WEATHER_TOWNS.items()
+            }
+            for job in as_completed(observation_jobs):
+                name = observation_jobs[job]
+                try:
+                    observation = job.result()
+                    if not observation:
                         continue
-            except Exception as exc:
-                observation_errors[name] = str(exc)
-                app.logger.warning("Observed rain unavailable for %s: %s", name, exc)
+                    target_hour = observation["hour"]
+                    for period in merged_towns.get(name, []):
+                        try:
+                            period_dt = datetime.fromisoformat(period.get("startTime", "").replace("Z", "+00:00"))
+                            if period_dt.tzinfo is None:
+                                period_dt = period_dt.replace(tzinfo=PACIFIC)
+                            else:
+                                period_dt = period_dt.astimezone(PACIFIC)
+                            if period_dt.strftime("%Y-%m-%dT%H:%M") == target_hour:
+                                period["observedPrecipitationMm"] = observation["millimeters"]
+                                period["observedStation"] = observation["station"]
+                                period["observedAt"] = observation["observedAt"]
+                                break
+                        except (TypeError, ValueError):
+                            continue
+                except Exception as exc:
+                    observation_errors[name] = str(exc)
+                    app.logger.warning("Observed rain unavailable for %s: %s", name, exc)
 
         if not any(merged_towns.values()):
             raise RuntimeError("The National Weather Service did not return any hourly forecasts. Please try again shortly.")
